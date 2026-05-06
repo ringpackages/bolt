@@ -6,8 +6,13 @@
 
 use ring_lang_rs::*;
 
+static LOG_INIT: std::sync::Once = std::sync::Once::new();
 static LOGGING_ENABLED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-static LOG_LEVEL: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(1);
+static LOG_LEVEL: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new({
+    // Initialize from BOLT_LOG_LEVEL env var if set
+    // Can't use match in const, so default to 1 (info)
+    1
+});
 
 fn log_level_num(level: &str) -> u8 {
     match level.to_lowercase().as_str() {
@@ -38,6 +43,12 @@ ring_func!(bolt_log, |p| {
     ring_check_paracount_range!(p, 1, 2);
     ring_check_string!(p, 1);
 
+    LOG_INIT.call_once(|| {
+        if let Ok(level) = std::env::var("BOLT_LOG_LEVEL") {
+            LOG_LEVEL.store(log_level_num(&level), std::sync::atomic::Ordering::SeqCst);
+        }
+    });
+
     if !LOGGING_ENABLED.load(std::sync::atomic::Ordering::SeqCst) {
         ring_ret_number!(p, 1.0);
         return;
@@ -52,6 +63,11 @@ ring_func!(bolt_log, |p| {
 
     let level_num = log_level_num(&level);
     let min_level = LOG_LEVEL.load(std::sync::atomic::Ordering::SeqCst);
+
+    let message: String = message
+        .chars()
+        .filter(|c| *c != '\r' && *c != '\n' && *c != '\x1b' && *c != '\0')
+        .collect();
 
     if level_num >= min_level {
         let prefix = match level_num {

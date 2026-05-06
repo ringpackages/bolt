@@ -35,7 +35,7 @@ ring_func!(bolt_json_decode, |p| {
     match serde_json::from_str::<Value>(json_str) {
         Ok(value) => {
             let list = ring_api_newlist(p);
-            json_to_ring_list(list, &value);
+            json_to_ring_list(list, &value, 0);
             ring_ret_list!(p, list);
         }
         Err(_) => {
@@ -61,7 +61,17 @@ ring_func!(bolt_json_pretty, |p| {
 });
 
 // Convert Ring list to serde_json Value
+const MAX_JSON_DEPTH: usize = 128;
+
 pub fn ring_list_to_json(list: RingList) -> Value {
+    ring_list_to_json_inner(list, 0)
+}
+
+fn ring_list_to_json_inner(list: RingList, depth: usize) -> Value {
+    if depth >= MAX_JSON_DEPTH {
+        return Value::Null;
+    }
+
     let size = ring_list_getsize(list);
 
     if size == 0 {
@@ -85,7 +95,7 @@ pub fn ring_list_to_json(list: RingList) -> Value {
                 // Remove : prefix if present
                 let clean_key = key.strip_prefix(':').unwrap_or(&key).to_string();
 
-                let val = get_list_item_as_json(inner, 2);
+                let val = get_list_item_as_json(inner, 2, depth + 1);
                 items.push((clean_key, val));
             } else {
                 is_object = false;
@@ -96,7 +106,7 @@ pub fn ring_list_to_json(list: RingList) -> Value {
             let s = ring_list_getstring_str(list, idx);
             if s.starts_with(':') && i < size {
                 let key = s.strip_prefix(':').unwrap_or(&s).to_string();
-                let val = get_list_item_as_json(list, i + 1);
+                let val = get_list_item_as_json(list, i + 1, depth + 1);
                 items.push((key, val));
                 // Skip the value in next iteration - but this pattern doesn't work well
                 // Better to just treat as array
@@ -116,13 +126,13 @@ pub fn ring_list_to_json(list: RingList) -> Value {
         // Treat as array
         let mut arr = Vec::new();
         for i in 1..=size {
-            arr.push(get_list_item_as_json(list, i));
+            arr.push(get_list_item_as_json(list, i, depth + 1));
         }
         Value::Array(arr)
     }
 }
 
-fn get_list_item_as_json(list: RingList, index: u32) -> Value {
+fn get_list_item_as_json(list: RingList, index: u32, depth: usize) -> Value {
     if ring_list_isstring(list, index) {
         let s = ring_list_getstring_str(list, index);
         Value::String(s)
@@ -137,14 +147,14 @@ fn get_list_item_as_json(list: RingList, index: u32) -> Value {
         }
     } else if ring_list_islist(list, index) {
         let inner = ring_list_getlist(list, index);
-        ring_list_to_json(inner)
+        ring_list_to_json_inner(inner, depth + 1)
     } else {
         Value::Null
     }
 }
 
 // Convert serde_json Value to Ring list
-fn json_to_ring_list(list: RingList, value: &Value) {
+fn json_to_ring_list(list: RingList, value: &Value, depth: usize) {
     match value {
         Value::Object(map) => {
             for (key, val) in map {
@@ -153,21 +163,24 @@ fn json_to_ring_list(list: RingList, value: &Value) {
                 let item = ring_list_newlist(list);
                 // Add key as string (Ring will handle hash access)
                 ring_list_addstring_str(item, key);
-                add_json_value_to_list(item, val);
+                add_json_value_to_list(item, val, depth + 1);
             }
         }
         Value::Array(arr) => {
             for val in arr {
-                add_json_value_to_list(list, val);
+                add_json_value_to_list(list, val, depth + 1);
             }
         }
         _ => {
-            add_json_value_to_list(list, value);
+            add_json_value_to_list(list, value, depth + 1);
         }
     }
 }
 
-fn add_json_value_to_list(list: RingList, value: &Value) {
+fn add_json_value_to_list(list: RingList, value: &Value, depth: usize) {
+    if depth >= MAX_JSON_DEPTH {
+        return;
+    }
     match value {
         Value::Null => {
             ring_list_addstring_str(list, "");
@@ -184,7 +197,7 @@ fn add_json_value_to_list(list: RingList, value: &Value) {
         Value::Array(arr) => {
             let inner = ring_list_newlist(list);
             for item in arr {
-                add_json_value_to_list(inner, item);
+                add_json_value_to_list(inner, item, depth + 1);
             }
         }
         Value::Object(map) => {
@@ -192,7 +205,7 @@ fn add_json_value_to_list(list: RingList, value: &Value) {
             for (key, val) in map {
                 let pair = ring_list_newlist(inner);
                 ring_list_addstring_str(pair, key);
-                add_json_value_to_list(pair, val);
+                add_json_value_to_list(pair, val, depth + 1);
             }
         }
     }

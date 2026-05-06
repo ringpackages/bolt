@@ -21,6 +21,10 @@ ring_func!(bolt_base64_decode, |p| {
     ring_check_paracount!(p, 1);
     ring_check_string!(p, 1);
     let s = ring_get_string!(p, 1);
+    if s.len() > 16 * 1024 * 1024 {
+        ring_error!(p, "base64 decode: input exceeds 16 MiB limit");
+        return;
+    }
     match base64::engine::general_purpose::STANDARD.decode(s) {
         Ok(bytes) => {
             let decoded = String::from_utf8_lossy(&bytes).to_string();
@@ -46,6 +50,10 @@ ring_func!(bolt_base64_url_decode, |p| {
     ring_check_paracount!(p, 1);
     ring_check_string!(p, 1);
     let s = ring_get_string!(p, 1);
+    if s.len() > 16 * 1024 * 1024 {
+        ring_error!(p, "base64 decode: input exceeds 16 MiB limit");
+        return;
+    }
     match base64::engine::general_purpose::URL_SAFE.decode(s) {
         Ok(bytes) => {
             let decoded = String::from_utf8_lossy(&bytes).to_string();

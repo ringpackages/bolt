@@ -27,16 +27,38 @@ ring_func!(bolt_sanitize_strict, |p| {
     ring_ret_string!(p, &clean);
 });
 
-/// bolt_escape_html(input) → string (escapes < > & " ')
+/// bolt_escape_html(input) → string (escapes for HTML body context)
 ring_func!(bolt_escape_html, |p| {
     ring_check_paracount!(p, 1);
     ring_check_string!(p, 1);
     let input = ring_get_string!(p, 1);
-    let escaped = input
-        .replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
-        .replace('\'', "&#x27;");
+    let escaped = html_escape::encode_text(input).to_string();
     ring_ret_string!(p, &escaped);
+});
+
+/// bolt_escape_attr(input) → string (safe for HTML attribute values, including unquoted)
+ring_func!(bolt_escape_attr, |p| {
+    ring_check_paracount!(p, 1);
+    ring_check_string!(p, 1);
+    let input = ring_get_string!(p, 1);
+    let escaped = html_escape::encode_unquoted_attribute(input).to_string();
+    ring_ret_string!(p, &escaped);
+});
+
+/// bolt_escape_js(input) → string (safe for embedding in JavaScript string literals)
+ring_func!(bolt_escape_js, |p| {
+    ring_check_paracount!(p, 1);
+    ring_check_string!(p, 1);
+    let input = ring_get_string!(p, 1);
+    let escaped = html_escape::encode_script_single_quoted_text(input).to_string();
+    ring_ret_string!(p, &escaped);
+});
+
+/// bolt_escape_url(input) → string (URL-encode for safe embedding in URL query values)
+ring_func!(bolt_escape_url, |p| {
+    ring_check_paracount!(p, 1);
+    ring_check_string!(p, 1);
+    let input = ring_get_string!(p, 1);
+    let encoded = urlencoding::encode(&input);
+    ring_ret_string!(p, &encoded);
 });

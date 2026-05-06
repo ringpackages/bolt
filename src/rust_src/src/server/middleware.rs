@@ -24,6 +24,17 @@ ring_func!(bolt_set_error_handler, |p| {
 
     let handler_name = ring_get_string!(p, 2);
 
+    if !handler_name
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '_')
+    {
+        ring_error!(
+            p,
+            "set error handler: handler name must contain only alphanumeric characters and underscores"
+        );
+        return;
+    }
+
     unsafe {
         let server = &mut *(ptr as *mut HttpServer);
         server.error_handler = Some(handler_name.to_string());
@@ -61,11 +72,22 @@ ring_func!(bolt_route_before, |p| {
 
     unsafe {
         let server = &mut *(ptr as *mut HttpServer);
+        let mut found = false;
         for route in &mut server.routes {
             if route.handler_name == handler_name {
                 route.before_middleware.push(middleware.to_string());
-                break;
+                found = true;
             }
+        }
+        if !found {
+            ring_error!(
+                p,
+                &format!(
+                    "route_before: no routes found for handler '{}'",
+                    handler_name
+                )
+            );
+            return;
         }
     }
     ring_ret_number!(p, 1.0);
@@ -89,11 +111,22 @@ ring_func!(bolt_route_after, |p| {
 
     unsafe {
         let server = &mut *(ptr as *mut HttpServer);
+        let mut found = false;
         for route in &mut server.routes {
             if route.handler_name == handler_name {
                 route.after_middleware.push(middleware.to_string());
-                break;
+                found = true;
             }
+        }
+        if !found {
+            ring_error!(
+                p,
+                &format!(
+                    "route_after: no routes found for handler '{}'",
+                    handler_name
+                )
+            );
+            return;
         }
     }
     ring_ret_number!(p, 1.0);

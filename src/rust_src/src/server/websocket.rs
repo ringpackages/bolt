@@ -6,6 +6,7 @@
 
 use actix_web::{HttpRequest, HttpResponse};
 use std::collections::HashMap;
+use std::str::FromStr;
 
 use crate::HTTP_SERVER_TYPE;
 use ring_lang_rs::*;
@@ -21,6 +22,60 @@ pub(crate) async fn handle_websocket(
     on_disconnect: Option<String>,
     ws_path: String,
 ) -> Result<HttpResponse, actix_web::Error> {
+    // Check Origin header to prevent Cross-Site WebSocket Hijacking
+    if let Some(origin) = req.headers().get("origin") {
+        if let Ok(origin_str) = origin.to_str() {
+            let host = req
+                .headers()
+                .get("host")
+                .and_then(|h| h.to_str().ok())
+                .unwrap_or("");
+            if !origin_str.contains(host) && !host.is_empty() {
+                return Ok(HttpResponse::Forbidden().body("Origin not allowed"));
+            }
+        }
+    }
+
+    // Enforce IP whitelist / blacklist (same as HTTP routes)
+    let client_ip_str = req
+        .peer_addr()
+        .map(|addr| addr.ip().to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+    if !state.ip_whitelist.is_empty() || !state.ip_blacklist.is_empty() {
+        use ipnetwork::IpNetwork;
+        let parsed_ip = client_ip_str
+            .parse::<std::net::IpAddr>()
+            .unwrap_or_else(|_| std::net::IpAddr::from_str("0.0.0.0").unwrap());
+
+        let ip_matches =
+            |ip: std::net::IpAddr, list: &[IpNetwork]| list.iter().any(|net| net.contains(ip));
+
+        let mapped_v4 = match parsed_ip {
+            std::net::IpAddr::V6(ref v6) => v6.to_ipv4_mapped().map(std::net::IpAddr::from),
+            _ => None,
+        };
+
+        let whitelisted = ip_matches(parsed_ip, &state.ip_whitelist)
+            || mapped_v4.map_or(false, |ip| ip_matches(ip, &state.ip_whitelist))
+            || (parsed_ip.is_ipv6()
+                && parsed_ip.is_loopback()
+                && ip_matches(std::net::IpAddr::from([127, 0, 0, 1]), &state.ip_whitelist));
+
+        if !state.ip_whitelist.is_empty() && !whitelisted {
+            return Ok(HttpResponse::Forbidden().body("Forbidden"));
+        }
+
+        let blacklisted = ip_matches(parsed_ip, &state.ip_blacklist)
+            || mapped_v4.map_or(false, |ip| ip_matches(ip, &state.ip_blacklist))
+            || (parsed_ip.is_ipv6()
+                && parsed_ip.is_loopback()
+                && ip_matches(std::net::IpAddr::from([127, 0, 0, 1]), &state.ip_blacklist));
+
+        if blacklisted {
+            return Ok(HttpResponse::Forbidden().body("Forbidden"));
+        }
+    }
+
     let (response, session, mut msg_stream) = actix_ws::handle(&req, stream)?;
 
     let ws_params: HashMap<String, String> = req
@@ -31,7 +86,7 @@ pub(crate) async fn handle_websocket(
 
     let client_id = uuid::Uuid::new_v4().to_string();
 
-    let (client_tx, mut client_rx) = tokio::sync::mpsc::unbounded_channel::<WsOutMessage>();
+    let (client_tx, mut client_rx) = tokio::sync::mpsc::channel::<WsOutMessage>(256);
 
     state.ws_clients.insert(client_id.clone(), client_tx);
 
@@ -164,8 +219,9 @@ pub(crate) async fn handle_websocket(
             for room in client_rooms {
                 if let Some(mut members) = state_clone.ws_rooms.get_mut(&room) {
                     members.remove(&client_id_clone);
-                    if members.is_empty() {
-                        drop(members);
+                    let empty = members.is_empty();
+                    drop(members);
+                    if empty {
                         state_clone.ws_rooms.remove(&room);
                     }
                 }
@@ -425,7 +481,7 @@ ring_func!(bolt_ws_send_to, |p| {
     unsafe {
         let server = &*(ptr as *const HttpServer);
         if let Some(tx) = server.ws_clients.get(client_id) {
-            match tx.send(WsOutMessage::Text(message.to_string())) {
+            match tx.try_send(WsOutMessage::Text(message.to_string())) {
                 Ok(_) => ring_ret_number!(p, 1.0),
                 Err(_) => ring_ret_number!(p, 0.0),
             }
@@ -462,7 +518,7 @@ ring_func!(bolt_ws_send_binary_to, |p| {
             }
         };
         if let Some(tx) = server.ws_clients.get(client_id) {
-            match tx.send(WsOutMessage::Binary(data)) {
+            match tx.try_send(WsOutMessage::Binary(data)) {
                 Ok(_) => ring_ret_number!(p, 1.0),
                 Err(_) => ring_ret_number!(p, 0.0),
             }
@@ -489,7 +545,7 @@ ring_func!(bolt_ws_close_client, |p| {
     unsafe {
         let server = &*(ptr as *const HttpServer);
         if let Some((_, tx)) = server.ws_clients.remove(client_id) {
-            let _ = tx.send(WsOutMessage::Close);
+            let _ = tx.try_send(WsOutMessage::Close);
             // clean up rooms
             if let Some(client_room_entry) = server.ws_client_rooms.remove(client_id) {
                 let client_rooms = client_room_entry.1;
@@ -629,7 +685,7 @@ ring_func!(bolt_ws_room_broadcast, |p| {
         let mut count = 0usize;
         for member_id in members {
             if let Some(tx) = server.ws_clients.get(&member_id) {
-                if tx.send(WsOutMessage::Text(message.to_string())).is_ok() {
+                if tx.try_send(WsOutMessage::Text(message.to_string())).is_ok() {
                     count += 1;
                 }
             }
@@ -672,7 +728,7 @@ ring_func!(bolt_ws_room_broadcast_binary, |p| {
         let mut count = 0usize;
         for member_id in members {
             if let Some(tx) = server.ws_clients.get(&member_id) {
-                if tx.send(WsOutMessage::Binary(data.clone())).is_ok() {
+                if tx.try_send(WsOutMessage::Binary(data.clone())).is_ok() {
                     count += 1;
                 }
             }

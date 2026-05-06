@@ -35,7 +35,7 @@ use actix_files::Files;
 use actix_web::{
     App, HttpRequest, HttpResponse, HttpServer as ActixHttpServer, Responder,
     http::{StatusCode, header},
-    middleware::{Compress, Condition, DefaultHeaders},
+    middleware::{Compress, Condition},
     web,
 };
 use dashmap::DashMap;
@@ -242,6 +242,9 @@ pub struct ServerConfig {
     pub session_ttl_secs: u64,
     pub cache_max_capacity: u64,
     pub cache_ttl_secs: u64,
+    pub force_secure_cookies: bool,
+    pub max_multipart_fields: usize,
+    pub max_multipart_field_size: usize,
 }
 
 impl Default for ServerConfig {
@@ -256,6 +259,9 @@ impl Default for ServerConfig {
             session_ttl_secs: 300,
             cache_max_capacity: 10_000,
             cache_ttl_secs: 300,
+            force_secure_cookies: false,
+            max_multipart_fields: 1000,
+            max_multipart_field_size: 10 * 1024 * 1024,
         }
     }
 }
@@ -289,14 +295,16 @@ pub struct HttpServer {
     pub tls: TlsConfig,
     pub config: ServerConfig,
     pub start_time: Instant,
-    pub sessions: Arc<Cache<String, HashMap<String, String>>>,
+    pub sessions: Arc<Cache<String, Arc<std::sync::Mutex<HashMap<String, String>>>>>,
+    pub max_multipart_fields: usize,
+    pub max_multipart_field_size: usize,
     pub cache: Arc<Cache<String, (String, u64)>>,
     pub ws_broadcast_tx: tokio::sync::broadcast::Sender<String>,
     pub vm: Arc<Mutex<VmPtr>>,
     pub running: Arc<Mutex<bool>>,
     pub current_request: Arc<Mutex<Option<RequestContext>>>,
     pub current_response: Arc<Mutex<Option<PendingResponse>>>,
-    pub ws_clients: Arc<DashMap<String, tokio::sync::mpsc::UnboundedSender<WsOutMessage>>>,
+    pub ws_clients: Arc<DashMap<String, tokio::sync::mpsc::Sender<WsOutMessage>>>,
     pub ws_rooms: Arc<DashMap<String, HashSet<String>>>,
     pub ws_client_rooms: Arc<DashMap<String, HashSet<String>>>,
     pub ws_event: Arc<Mutex<Option<WsEventContext>>>,
@@ -312,6 +320,7 @@ pub struct HttpServer {
     pub template_cache: Arc<std::sync::RwLock<HashMap<String, (String, u64)>>>,
     pub regex_cache: Arc<Mutex<HashMap<String, regex::Regex>>>,
     pub csrf_secret: Option<String>,
+    pub session_secret: String,
     pub body_size_limit: Arc<std::sync::atomic::AtomicUsize>,
 }
 
@@ -324,7 +333,7 @@ pub struct SseEvent {
 impl HttpServer {
     #[allow(clippy::arc_with_non_send_sync)]
     pub fn new(vm: *mut c_void) -> Self {
-        let server = Self {
+        let mut server = Self {
             port: 3000,
             host: "0.0.0.0".to_string(),
             routes: Vec::new(),
@@ -345,6 +354,8 @@ impl HttpServer {
                     .time_to_live(Duration::from_secs(300))
                     .build(),
             ),
+            max_multipart_fields: 0,     // initialized from config below
+            max_multipart_field_size: 0, // initialized from config below
             cache: Arc::new(
                 Cache::builder()
                     .max_capacity(10_000)
@@ -371,8 +382,11 @@ impl HttpServer {
             template_cache: Arc::new(std::sync::RwLock::new(HashMap::new())),
             regex_cache: Arc::new(Mutex::new(HashMap::new())),
             csrf_secret: None,
+            session_secret: uuid::Uuid::new_v4().to_string(),
             body_size_limit: Arc::new(std::sync::atomic::AtomicUsize::new(50 * 1024 * 1024)),
         };
+        server.max_multipart_fields = server.config.max_multipart_fields;
+        server.max_multipart_field_size = server.config.max_multipart_field_size;
         server
     }
 
@@ -471,7 +485,7 @@ pub(crate) struct AppState {
     sse_broadcast_channels: Arc<Mutex<HashMap<String, tokio::sync::broadcast::Sender<SseEvent>>>>,
     vm_tx: tokio::sync::mpsc::Sender<VmWork>,
     ws_broadcast_tx: tokio::sync::broadcast::Sender<String>,
-    ws_clients: Arc<DashMap<String, tokio::sync::mpsc::UnboundedSender<WsOutMessage>>>,
+    ws_clients: Arc<DashMap<String, tokio::sync::mpsc::Sender<WsOutMessage>>>,
     ws_rooms: Arc<DashMap<String, HashSet<String>>>,
     ws_client_rooms: Arc<DashMap<String, HashSet<String>>>,
     route_limiters: Arc<DashMap<String, Arc<governor::DefaultKeyedRateLimiter<String>>>>,
@@ -479,6 +493,9 @@ pub(crate) struct AppState {
     ip_blacklist: Vec<IpNetwork>,
     regex_cache: Arc<Mutex<HashMap<String, regex::Regex>>>,
     body_size_limit: Arc<std::sync::atomic::AtomicUsize>,
+    session_secret: String,
+    max_multipart_fields: usize,
+    max_multipart_field_size: usize,
 }
 
 /// Check route constraints (standalone function for AppState)
@@ -685,7 +702,8 @@ ring_func!(bolt_listen, |p| {
         }
 
         let system = actix_web::rt::System::new();
-        system.block_on(async {
+        crate::modules::env::ENV_SET_ALLOWED.store(false, std::sync::atomic::Ordering::SeqCst);
+        let result = system.block_on(async {
             run_server(
                 host,
                 port,
@@ -716,9 +734,17 @@ ring_func!(bolt_listen, |p| {
                 ip_whitelist,
                 ip_blacklist,
                 request_timeout_ms,
+                server.session_secret.clone(),
+                server.max_multipart_fields,
+                server.max_multipart_field_size,
             )
-            .await;
+            .await
         });
+
+        if let Err(_) = result {
+            ring_error!(p, "Failed to start server");
+            return;
+        }
     }
 
     ring_ret_number!(p, 1.0);
@@ -742,7 +768,7 @@ async fn run_server(
     compression: bool,
     tls_config: TlsConfig,
     ws_broadcast_tx: tokio::sync::broadcast::Sender<String>,
-    ws_clients: Arc<DashMap<String, tokio::sync::mpsc::UnboundedSender<WsOutMessage>>>,
+    ws_clients: Arc<DashMap<String, tokio::sync::mpsc::Sender<WsOutMessage>>>,
     ws_rooms: Arc<DashMap<String, HashSet<String>>>,
     ws_client_rooms: Arc<DashMap<String, HashSet<String>>>,
     ws_event: Arc<Mutex<Option<WsEventContext>>>,
@@ -759,7 +785,10 @@ async fn run_server(
     ip_whitelist: Vec<IpNetwork>,
     ip_blacklist: Vec<IpNetwork>,
     request_timeout_ms: u64,
-) {
+    session_secret: String,
+    max_multipart_fields: usize,
+    max_multipart_field_size: usize,
+) -> Result<(), std::io::Error> {
     let openapi_spec_clone = openapi_spec.clone();
     let (sse_shutdown_tx, _) = tokio::sync::broadcast::channel::<()>(1);
 
@@ -834,13 +863,15 @@ async fn run_server(
                                         );
                                     }
 
-                                    if let Some(rd) = route_def {
-                                        for ah in &rd.after_middleware {
+                                    if !aborted {
+                                        if let Some(rd) = route_def {
+                                            for ah in &rd.after_middleware {
+                                                ring_vm_callfunction_str(vm_ptr as RingVM, ah);
+                                            }
+                                        }
+                                        for ah in &after_handlers {
                                             ring_vm_callfunction_str(vm_ptr as RingVM, ah);
                                         }
-                                    }
-                                    for ah in &after_handlers {
-                                        ring_vm_callfunction_str(vm_ptr as RingVM, ah);
                                     }
 
                                     let mut response = current_response.lock().take();
@@ -912,6 +943,9 @@ async fn run_server(
         ip_blacklist,
         regex_cache: Arc::new(Mutex::new(HashMap::new())),
         body_size_limit: body_size_limit.clone(),
+        session_secret,
+        max_multipart_fields,
+        max_multipart_field_size,
     };
 
     let limiters_clone = state.route_limiters.clone();
@@ -930,7 +964,7 @@ async fn run_server(
     let server = ActixHttpServer::new(move || {
         let mut app = App::new()
             .app_data(state_data.clone())
-            .app_data(web::PayloadConfig::new(usize::MAX));
+            .app_data(web::PayloadConfig::new(100 * 1024 * 1024));
 
         for route in &routes {
             let path = route.path.clone();
@@ -1059,8 +1093,24 @@ async fn run_server(
 
         for static_route in &static_routes {
             let url_path = static_route.url_path.trim_end_matches('/');
-            app =
-                app.service(Files::new(url_path, &static_route.dir_path).index_file("index.html"));
+            let dir_path = static_route.dir_path.clone();
+            let canonical_root = std::path::Path::new(&dir_path).canonicalize().ok();
+            app = app.service(
+                Files::new(url_path, &static_route.dir_path)
+                    .index_file("index.html")
+                    .path_filter(move |path, _| {
+                        let full_path = std::path::Path::new(&dir_path).join(path);
+                        let resolved = match full_path.canonicalize() {
+                            Ok(p) => p,
+                            Err(_) => return false,
+                        };
+                        if let Some(ref root) = canonical_root {
+                            resolved.starts_with(root)
+                        } else {
+                            false
+                        }
+                    }),
+            );
         }
 
         if let Some(ref spec) = openapi_spec_clone {
@@ -1113,16 +1163,32 @@ async fn run_server(
             Cors::default()
         };
 
-        let has_wildcard = cors_config.origins.iter().any(|o| o == "*");
-        let default_cors_header =
-            if cors_config.enabled && (cors_config.origins.is_empty() || has_wildcard) {
-                DefaultHeaders::new().add((header::ACCESS_CONTROL_ALLOW_ORIGIN, "*"))
-            } else {
-                DefaultHeaders::new()
-            };
-        app.wrap(Condition::new(compression, Compress::default()))
+        let cors = if cors_config.credentials {
+            cors.supports_credentials()
+        } else {
+            cors
+        };
+
+        // Build security headers middleware
+        let mut default_headers = actix_web::middleware::DefaultHeaders::new()
+            .add(("X-Content-Type-Options", "nosniff"))
+            .add(("X-Frame-Options", "DENY"))
+            .add(("Referrer-Policy", "strict-origin-when-cross-origin"))
+            .add((
+                "Permissions-Policy",
+                "geolocation=(), microphone=(), camera=()",
+            ));
+
+        if tls_config.enabled {
+            default_headers = default_headers.add((
+                "Strict-Transport-Security",
+                "max-age=31536000; includeSubDomains",
+            ));
+        }
+
+        app.wrap(default_headers)
+            .wrap(Condition::new(compression, Compress::default()))
             .wrap(Condition::new(cors_config.enabled, cors))
-            .wrap(default_cors_header)
     })
     .keep_alive(Duration::from_millis(request_timeout_ms));
 
@@ -1173,7 +1239,10 @@ async fn run_server(
                 eprintln!("\n[error] Failed to load TLS certificates");
                 eprintln!("        Cert: {}", tls_config.cert_path);
                 eprintln!("        {}\n", e);
-                return;
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("Failed to load TLS certificates: {}", e),
+                ));
             }
         };
 
@@ -1183,7 +1252,10 @@ async fn run_server(
                 eprintln!("\n[error] Failed to load TLS key");
                 eprintln!("        Key:  {}", tls_config.key_path);
                 eprintln!("        {}\n", e);
-                return;
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("Failed to load TLS key: {}", e),
+                ));
             }
         };
 
@@ -1201,7 +1273,10 @@ async fn run_server(
                 "\n[error] No valid private keys found in {}\n",
                 tls_config.key_path
             );
-            return;
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "No valid private keys found",
+            ));
         }
 
         let tls_config = match ServerConfig::builder()
@@ -1213,20 +1288,24 @@ async fn run_server(
             Ok(c) => c,
             Err(e) => {
                 eprintln!("\n[error] Failed to build TLS config: {}\n", e);
-                return;
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("Failed to build TLS config: {}", e),
+                ));
             }
         };
 
         println!("[bolt] HTTPS server running on https://{}:{}", host, port);
 
-        let server_handle = server
-            .bind_rustls_0_23(&addr, tls_config)
-            .unwrap_or_else(|e| {
+        let server_handle: actix_web::dev::Server = match server.bind_rustls_0_23(&addr, tls_config)
+        {
+            Ok(s) => s.run(),
+            Err(e) => {
                 eprintln!("\n[error] Failed to bind HTTPS server on {}", addr);
                 eprintln!("        {}\n", e);
-                std::process::exit(1);
-            })
-            .run();
+                return Err(e);
+            }
+        };
 
         tokio::select! {
             result = server_handle => {
@@ -1241,9 +1320,9 @@ async fn run_server(
     } else {
         println!("[bolt] Server running on http://{}:{}", host, port);
 
-        let server_handle = server
-            .bind(&addr)
-            .unwrap_or_else(|e: std::io::Error| {
+        let server_handle: actix_web::dev::Server = match server.bind(&addr) {
+            Ok(s) => s.run(),
+            Err(e) => {
                 match e.kind() {
                     std::io::ErrorKind::AddrInUse => {
                         eprintln!("\n[error] Port {} is already in use.", port);
@@ -1269,9 +1348,10 @@ async fn run_server(
                         eprintln!("        {}\n", e);
                     }
                 }
-                std::process::exit(1);
-            })
-            .run();
+                *running.lock() = false;
+                return Err(e);
+            }
+        };
 
         tokio::select! {
             result = server_handle => {
@@ -1286,6 +1366,7 @@ async fn run_server(
     }
 
     *running.lock() = false;
+    Ok(())
 }
 
 // ========================================
@@ -1349,8 +1430,16 @@ async fn handle_request(
         let mut form = HashMap::new();
         let mut multipart = actix_multipart::Multipart::new(req.headers(), payload);
         let mut total_size = 0usize;
+        let mut field_count = 0usize;
 
         while let Some(field_result) = multipart.next().await {
+            field_count += 1;
+            if field_count > state.max_multipart_fields {
+                return HttpResponse::PayloadTooLarge()
+                    .insert_header(("X-Request-Id", request_id_str.clone()))
+                    .body("Too many multipart fields");
+            }
+
             let mut field = match field_result {
                 Ok(f) => f,
                 Err(_) => {
@@ -1371,6 +1460,7 @@ async fn handle_request(
                 .unwrap_or_else(|| "application/octet-stream".to_string());
 
             let mut data = Vec::new();
+            let mut field_size = 0usize;
             while let Some(chunk) = field.next().await {
                 let bytes = match chunk {
                     Ok(b) => b,
@@ -1381,7 +1471,13 @@ async fn handle_request(
                     }
                 };
                 data.extend_from_slice(&bytes);
+                field_size += bytes.len();
                 total_size += bytes.len();
+                if field_size > state.max_multipart_field_size {
+                    return HttpResponse::PayloadTooLarge()
+                        .insert_header(("X-Request-Id", request_id_str.clone()))
+                        .body("Multipart field too large");
+                }
                 if total_size
                     > state
                         .body_size_limit
@@ -1497,10 +1593,19 @@ async fn handle_request(
         }
     }
 
-    let session_id = cookies
-        .get("BOLTSESSION")
-        .cloned()
-        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    // Read and verify signed session ID to prevent fixation attacks
+    let session_id = {
+        let raw_cookie = cookies
+            .get("BOLTSESSION")
+            .or_else(|| cookies.get("__Host-BOLTSESSION"))
+            .cloned();
+
+        match raw_cookie {
+            Some(signed) => sessions::verify_session_id(&signed, &state.session_secret)
+                .unwrap_or_else(|| sessions::generate_session_id()),
+            None => sessions::generate_session_id(),
+        }
+    };
 
     let method = req.method().to_string();
     let matched_path = req.match_pattern().unwrap_or_default();
@@ -1860,8 +1965,8 @@ ring_func!(bolt_req_client_ip, |p| {
             let peer_addr = &ctx.peer_addr;
             let proxy_whitelist = &server.config.proxy_whitelist;
 
-            let is_trusted = proxy_whitelist.is_empty()
-                || proxy_whitelist.iter().any(|allowed| {
+            let is_trusted = !proxy_whitelist.is_empty()
+                && proxy_whitelist.iter().any(|allowed| {
                     allowed
                         .parse::<IpNetwork>()
                         .map(|net| {
@@ -1881,15 +1986,9 @@ ring_func!(bolt_req_client_ip, |p| {
                         .filter(|s| !s.is_empty())
                         .collect();
 
-                    if proxy_whitelist.is_empty() {
-                        // No whitelist: trust the header completely, use leftmost IP
-                        if let Some(first) = ips.first() {
-                            ring_ret_string!(p, first);
-                            return;
-                        }
-                    } else {
-                        // Secure: walk right-to-left, skip trusted proxies,
-                        // return the first untrusted IP (the actual client)
+                    // Secure: walk right-to-left, skip trusted proxies,
+                    // return the first untrusted IP (the actual client)
+                    {
                         let mut client_ip = peer_addr.clone();
                         for ip in ips.iter().rev() {
                             if let Ok(addr) = ip.parse::<std::net::IpAddr>() {
@@ -2074,8 +2173,12 @@ ring_func!(bolt_set_cookie, |p| {
     };
 
     // Reject cookie names/values containing control chars or newlines
-    if name.chars().any(|c| c.is_control() || c == ';' || c == '=')
-        || value.chars().any(|c| c.is_control())
+    if name
+        .chars()
+        .any(|c| c.is_control() || c == ';' || c == '=' || c == ' ' || c == ',' || c == '"')
+        || value
+            .chars()
+            .any(|c| c.is_control() || c == ';' || c == ',' || c == '\\' || c == '"')
     {
         ring_error!(
             p,
@@ -2242,7 +2345,7 @@ ring_func!(bolt_unixtime, |p| {
     use std::time::{SystemTime, UNIX_EPOCH};
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
+        .unwrap_or_default()
         .as_secs();
 
     ring_ret_number!(p, timestamp as f64);
@@ -2255,7 +2358,7 @@ ring_func!(bolt_unixtime_ms, |p| {
     use std::time::{SystemTime, UNIX_EPOCH};
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
+        .unwrap_or_default()
         .as_millis();
 
     ring_ret_number!(p, timestamp as f64);
@@ -2396,6 +2499,50 @@ ring_func!(bolt_set_body_limit, |p| {
         server
             .body_size_limit
             .store(bytes, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    ring_ret_number!(p, 1.0);
+});
+
+/// bolt_set_multipart_field_count_limit(server, max_fields) - set max multipart fields
+ring_func!(bolt_set_multipart_field_count_limit, |p| {
+    ring_check_paracount!(p, 2);
+    ring_check_cpointer!(p, 1);
+    ring_check_number!(p, 2);
+
+    let ptr = ring_api_getcpointer(p, 1, HTTP_SERVER_TYPE);
+    if ptr.is_null() {
+        return;
+    }
+
+    let max_fields = ring_get_number!(p, 2) as usize;
+
+    unsafe {
+        let server = &mut *(ptr as *mut HttpServer);
+        server.config.max_multipart_fields = max_fields;
+        server.max_multipart_fields = max_fields;
+    }
+
+    ring_ret_number!(p, 1.0);
+});
+
+/// bolt_set_multipart_field_size_limit(server, bytes) - set max bytes per multipart field
+ring_func!(bolt_set_multipart_field_size_limit, |p| {
+    ring_check_paracount!(p, 2);
+    ring_check_cpointer!(p, 1);
+    ring_check_number!(p, 2);
+
+    let ptr = ring_api_getcpointer(p, 1, HTTP_SERVER_TYPE);
+    if ptr.is_null() {
+        return;
+    }
+
+    let max_bytes = ring_get_number!(p, 2) as usize;
+
+    unsafe {
+        let server = &mut *(ptr as *mut HttpServer);
+        server.config.max_multipart_field_size = max_bytes;
+        server.max_multipart_field_size = max_bytes;
     }
 
     ring_ret_number!(p, 1.0);
@@ -3486,8 +3633,11 @@ mod tests {
             .map(|i| {
                 let server = Arc::clone(&server);
                 std::thread::spawn(move || {
-                    let mut session = HashMap::new();
-                    session.insert(format!("key{}", i), format!("value{}", i));
+                    let session = Arc::new(std::sync::Mutex::new(HashMap::new()));
+                    session
+                        .lock()
+                        .unwrap()
+                        .insert(format!("key{}", i), format!("value{}", i));
                     server.sessions.insert(format!("session{}", i), session);
                     let _ = server.sessions.get(&format!("session{}", i));
                 })

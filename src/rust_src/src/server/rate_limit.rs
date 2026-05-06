@@ -24,8 +24,18 @@ ring_func!(bolt_rate_limit, |p| {
     ring_check_number!(p, 1);
     ring_check_number!(p, 2);
 
-    let max_requests = ring_get_number!(p, 1) as u64;
-    let window_seconds = ring_get_number!(p, 2) as u64;
+    let max_req_f = ring_get_number!(p, 1);
+    let window_sec_f = ring_get_number!(p, 2);
+    if !max_req_f.is_finite() || max_req_f < 0.0 || !window_sec_f.is_finite() || window_sec_f < 0.0
+    {
+        ring_error!(
+            p,
+            "rate limit: max_requests and window_seconds must be non-negative finite numbers"
+        );
+        return;
+    }
+    let max_requests = max_req_f as u64;
+    let window_seconds = window_sec_f as u64;
 
     RATE_LIMIT_MAX.store(max_requests, Ordering::SeqCst);
     RATE_LIMIT_WINDOW.store(window_seconds, Ordering::SeqCst);
@@ -49,32 +59,41 @@ ring_func!(bolt_check_rate_limit, |p| {
         .unwrap()
         .as_secs();
 
-    let window_start = RATE_LIMIT_WINDOW_START.load(Ordering::SeqCst);
     let window = RATE_LIMIT_WINDOW.load(Ordering::SeqCst);
-
-    if now - window_start >= window {
-        RATE_LIMIT_WINDOW_START.store(now, Ordering::SeqCst);
-        RATE_LIMIT_REQUESTS.store(1, Ordering::SeqCst);
-        ring_ret_number!(p, 1.0);
-        return;
-    }
-
-    let requests = RATE_LIMIT_REQUESTS
-        .fetch_add(1, Ordering::SeqCst)
-        .saturating_add(1);
     let max = RATE_LIMIT_MAX.load(Ordering::SeqCst);
 
-    if requests == u64::MAX {
-        RATE_LIMIT_WINDOW_START.store(now, Ordering::SeqCst);
-        RATE_LIMIT_REQUESTS.store(1, Ordering::SeqCst);
-        ring_ret_number!(p, 1.0);
-        return;
-    }
+    loop {
+        let window_start = RATE_LIMIT_WINDOW_START.load(Ordering::SeqCst);
 
-    if requests > max {
-        ring_ret_number!(p, 0.0);
-    } else {
-        ring_ret_number!(p, 1.0);
+        if now.saturating_sub(window_start) >= window {
+            // Try to atomically claim the reset
+            match RATE_LIMIT_WINDOW_START.compare_exchange(
+                window_start,
+                now,
+                Ordering::SeqCst,
+                Ordering::SeqCst,
+            ) {
+                Ok(_) => {
+                    // We won the race — reset counter and allow
+                    RATE_LIMIT_REQUESTS.store(1, Ordering::SeqCst);
+                    ring_ret_number!(p, 1.0);
+                    return;
+                }
+                Err(_) => continue, // Another thread reset, re-read
+            }
+        }
+
+        // Window is still valid, try to increment
+        let requests = RATE_LIMIT_REQUESTS
+            .fetch_add(1, Ordering::SeqCst)
+            .saturating_add(1);
+
+        if requests > max {
+            ring_ret_number!(p, 0.0);
+        } else {
+            ring_ret_number!(p, 1.0);
+        }
+        return;
     }
 });
 
@@ -93,8 +112,18 @@ ring_func!(bolt_route_rate_limit, |p| {
     }
 
     let handler_name = ring_get_string!(p, 2);
-    let max_requests = ring_get_number!(p, 3) as u64;
-    let window_seconds = ring_get_number!(p, 4) as u64;
+    let max_req_f = ring_get_number!(p, 3);
+    let window_sec_f = ring_get_number!(p, 4);
+    if !max_req_f.is_finite() || max_req_f < 0.0 || !window_sec_f.is_finite() || window_sec_f < 0.0
+    {
+        ring_error!(
+            p,
+            "rate limit: max_requests and window_seconds must be non-negative finite numbers"
+        );
+        return;
+    }
+    let max_requests = max_req_f as u64;
+    let window_seconds = window_sec_f as u64;
 
     unsafe {
         let server = &mut *(ptr as *mut HttpServer);

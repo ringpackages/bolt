@@ -43,8 +43,14 @@ pub(crate) async fn handle_sse(
                 match Pin::new(&mut self.inner).poll_next(cx) {
                     Poll::Ready(Some(Ok(evt))) => {
                         let mut event_str = String::new();
-                        if let Some(event_name) = evt.event {
-                            event_str.push_str(&format!("event: {}\n", event_name));
+                        if let Some(ref event_name) = evt.event {
+                            let sanitized: String = event_name
+                                .chars()
+                                .filter(|c| *c != '\r' && *c != '\n' && *c != ':')
+                                .collect();
+                            if !sanitized.is_empty() {
+                                event_str.push_str(&format!("event: {}\n", sanitized));
+                            }
                         }
                         for line in evt.data.lines() {
                             event_str.push_str(&format!("data: {}\n", line));

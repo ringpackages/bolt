@@ -24,7 +24,7 @@ ring_func!(bolt_hash_argon2, |p| {
     match argon2.hash_password(password.as_bytes(), &salt) {
         Ok(hash) => ring_ret_string!(p, &hash.to_string()),
         Err(_) => {
-            ring_ret_string!(p, "");
+            ring_error!(p, "argon2 hashing failed");
         }
     }
 });
@@ -54,10 +54,13 @@ ring_func!(bolt_hash_bcrypt, |p| {
 
     let password = ring_get_string!(p, 1);
 
-    match bcrypt::hash(password, bcrypt::DEFAULT_COST) {
+    match bcrypt::non_truncating_hash(password, bcrypt::DEFAULT_COST) {
         Ok(hash) => ring_ret_string!(p, &hash),
+        Err(bcrypt::BcryptError::Truncation(_)) => {
+            ring_error!(p, "bcrypt: password exceeds 72 byte limit");
+        }
         Err(_) => {
-            ring_ret_string!(p, "");
+            ring_error!(p, "bcrypt hashing failed");
         }
     }
 });
@@ -86,7 +89,7 @@ ring_func!(bolt_hash_scrypt, |p| {
     match scrypt.hash_password(password.as_bytes()) {
         Ok(hash) => ring_ret_string!(p, &hash.to_string()),
         Err(_) => {
-            ring_ret_string!(p, "");
+            ring_error!(p, "scrypt hashing failed");
         }
     }
 });

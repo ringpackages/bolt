@@ -156,6 +156,8 @@ ring_libinit! {
     // Server Configuration
     "bolt_set_timeout" => bolt_set_timeout,
     "bolt_set_body_limit" => bolt_set_body_limit,
+    "bolt_set_multipart_field_count_limit" => bolt_set_multipart_field_count_limit,
+    "bolt_set_multipart_field_size_limit" => bolt_set_multipart_field_size_limit,
     "bolt_set_session_capacity" => bolt_set_session_capacity,
     "bolt_set_session_ttl" => bolt_set_session_ttl,
     "bolt_set_cache_capacity" => bolt_set_cache_capacity,
@@ -266,5 +268,8 @@ ring_libinit! {
     "bolt_sanitize_html" => bolt_sanitize_html,
     "bolt_sanitize_strict" => bolt_sanitize_strict,
     "bolt_escape_html" => bolt_escape_html,
+    "bolt_escape_attr" => bolt_escape_attr,
+    "bolt_escape_js" => bolt_escape_js,
+    "bolt_escape_url" => bolt_escape_url,
 
 }

@@ -46,7 +46,7 @@ ring_func!(bolt_aes_encrypt, |p| {
             ring_ret_string!(p, &encoded);
         }
         Err(_) => {
-            ring_ret_string!(p, "");
+            ring_error!(p, "AES encryption failed");
         }
     }
 });
@@ -73,7 +73,7 @@ ring_func!(bolt_aes_decrypt, |p| {
     let combined = match base64::engine::general_purpose::STANDARD.decode(ciphertext_b64) {
         Ok(v) => v,
         Err(_) => {
-            ring_ret_string!(p, "");
+            ring_error!(p, "Invalid base64 ciphertext");
             return;
         }
     };
@@ -94,7 +94,7 @@ ring_func!(bolt_aes_decrypt, |p| {
             ring_ret_string!(p, &s);
         }
         Err(_) => {
-            ring_ret_string!(p, "");
+            ring_error!(p, "AES decryption failed (wrong key or corrupted data)");
         }
     }
 });

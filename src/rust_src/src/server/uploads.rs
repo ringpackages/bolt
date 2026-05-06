@@ -166,13 +166,30 @@ ring_func!(bolt_req_file_save, |p| {
     let index = (ring_get_number!(p, 2) as usize).saturating_sub(1);
     let path = ring_get_string!(p, 3);
 
-    // Prevent path traversal
+    // Prevent path traversal and absolute paths
     let path_obj = std::path::Path::new(path);
     for component in path_obj.components() {
-        if component == std::path::Component::ParentDir {
-            ring_error!(p, "Invalid path: path traversal detected");
-            return;
+        match component {
+            std::path::Component::ParentDir => {
+                ring_error!(p, "Invalid path: path traversal detected");
+                return;
+            }
+            std::path::Component::RootDir => {
+                ring_error!(p, "Invalid path: absolute paths not allowed");
+                return;
+            }
+            std::path::Component::Prefix(_) => {
+                ring_error!(p, "Invalid path: path prefix not allowed");
+                return;
+            }
+            _ => {}
         }
+    }
+
+    // Reject NUL bytes in path
+    if path.as_bytes().contains(&0) {
+        ring_error!(p, "Invalid path: NUL byte detected");
+        return;
     }
 
     unsafe {
@@ -180,7 +197,14 @@ ring_func!(bolt_req_file_save, |p| {
         let guard = server.current_request.lock();
         if let Some(ref ctx) = *guard {
             if index < ctx.files.len() {
-                match std::fs::write(path, &ctx.files[index].data) {
+                match std::fs::OpenOptions::new()
+                    .write(true)
+                    .create_new(true)
+                    .open(path)
+                    .and_then(|mut f| {
+                        use std::io::Write;
+                        f.write_all(&ctx.files[index].data)
+                    }) {
                     Ok(_) => {
                         ring_ret_number!(p, 1.0);
                         return;

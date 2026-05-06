@@ -24,6 +24,7 @@ ring_func!(bolt_render_template, |p| {
     let data = ring_list_to_json(list);
 
     let mut env = minijinja::Environment::new();
+    env.set_auto_escape_callback(|_| minijinja::AutoEscape::Html);
     if let Err(e) = env.add_template("template", template_str) {
         ring_error!(p, &format!("Template error: {}", e));
         return;
@@ -56,6 +57,15 @@ ring_func!(bolt_render_file, |p| {
 
     let filepath = ring_get_string!(p, 2);
 
+    // Reject path traversal attempts
+    let path_obj = std::path::Path::new(filepath);
+    for component in path_obj.components() {
+        if component == std::path::Component::ParentDir {
+            ring_error!(p, "Template path traversal detected: '..' not allowed");
+            return;
+        }
+    }
+
     let ptr = ring_api_getcpointer(p, 1, HTTP_SERVER_TYPE);
 
     let template_str = unsafe {
@@ -81,6 +91,12 @@ ring_func!(bolt_render_file, |p| {
                                     .template_cache
                                     .write()
                                     .unwrap_or_else(|e| e.into_inner());
+                                const MAX_TEMPLATE_CACHE: usize = 1000;
+                                if cache.len() >= MAX_TEMPLATE_CACHE {
+                                    if let Some(key) = cache.keys().next().cloned() {
+                                        cache.remove(&key);
+                                    }
+                                }
                                 cache.insert(filepath.to_string(), (content.clone(), mtime_secs));
                                 content
                             }
@@ -110,6 +126,13 @@ ring_func!(bolt_render_file, |p| {
                         .template_cache
                         .write()
                         .unwrap_or_else(|e| e.into_inner());
+                    // Prevent unbounded growth: evict an arbitrary entry if at capacity
+                    const MAX_TEMPLATE_CACHE: usize = 1000;
+                    if cache.len() >= MAX_TEMPLATE_CACHE {
+                        if let Some(key) = cache.keys().next().cloned() {
+                            cache.remove(&key);
+                        }
+                    }
                     cache.insert(filepath.to_string(), (content.clone(), mtime_secs));
                     content
                 }
@@ -134,8 +157,25 @@ ring_func!(bolt_render_file, |p| {
         .unwrap_or("template");
 
     let mut env = minijinja::Environment::new();
+    env.set_auto_escape_callback(|name| {
+        if name.ends_with(".html") || name.ends_with(".htm") || name.ends_with(".xml") {
+            minijinja::AutoEscape::Html
+        } else if name == "template"
+            || name.ends_with(".tpl")
+            || name.ends_with(".j2")
+            || name.ends_with(".jinja")
+            || name.ends_with(".tmpl")
+        {
+            minijinja::AutoEscape::Html
+        } else {
+            minijinja::AutoEscape::None
+        }
+    });
     let dir_clone = dir.clone();
     env.set_loader(move |name| {
+        if name.contains("..") {
+            return Ok(None);
+        }
         let path = dir_clone.join(name);
         match std::fs::read_to_string(&path) {
             Ok(content) => Ok(Some(content)),

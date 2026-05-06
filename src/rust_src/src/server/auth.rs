@@ -101,7 +101,7 @@ ring_func!(bolt_csrf_token, |p| {
 
     let timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
+        .unwrap_or_default()
         .as_secs();
     let payload = format!("{}.{}", session_id, timestamp);
 
@@ -191,7 +191,7 @@ ring_func!(bolt_verify_csrf, |p| {
 
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
+        .unwrap_or_default()
         .as_secs();
     if now.saturating_sub(timestamp) > 3600 {
         ring_ret_number!(p, 0.0);
@@ -241,6 +241,10 @@ ring_func!(bolt_jwt_encode, |p| {
         ring_get_string!(p, 1).to_string()
     };
     let secret = ring_get_string!(p, 2);
+    if secret.len() < 32 {
+        ring_error!(p, "JWT secret must be at least 32 bytes");
+        return;
+    }
 
     let expires_in = if ring_api_paracount(p) >= 3 && ring_api_isnumber(p, 3) {
         Some(ring_get_number!(p, 3) as u64)
@@ -254,7 +258,7 @@ ring_func!(bolt_jwt_encode, |p| {
     use std::time::{SystemTime, UNIX_EPOCH};
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
+        .unwrap_or_default()
         .as_secs();
 
     let claims = JwtClaims {
@@ -283,10 +287,14 @@ ring_func!(bolt_jwt_decode, |p| {
 
     let token = ring_get_string!(p, 1);
     let secret = ring_get_string!(p, 2);
+    if secret.len() < 32 {
+        ring_error!(p, "JWT secret must be at least 32 bytes");
+        return;
+    }
 
     let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::HS256);
     validation.validate_exp = true;
-    validation.required_spec_claims.clear();
+    validation.required_spec_claims.insert("exp".to_string());
 
     match jsonwebtoken::decode::<JwtClaims>(
         token,
@@ -311,10 +319,14 @@ ring_func!(bolt_jwt_verify, |p| {
 
     let token = ring_get_string!(p, 1);
     let secret = ring_get_string!(p, 2);
+    if secret.len() < 32 {
+        ring_error!(p, "JWT secret must be at least 32 bytes");
+        return;
+    }
 
     let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::HS256);
     validation.validate_exp = true;
-    validation.required_spec_claims.clear();
+    validation.required_spec_claims.insert("exp".to_string());
 
     match jsonwebtoken::decode::<JwtClaims>(
         token,

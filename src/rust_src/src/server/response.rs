@@ -8,7 +8,6 @@ use super::{HttpServer, PendingResponse, ResponseBody};
 use crate::HTTP_SERVER_TYPE;
 use crate::ring_list_to_json;
 use ring_lang_rs::*;
-use std::collections::HashMap;
 
 /// bolt_respond(server, status, body)
 ring_func!(bolt_respond, |p| {
@@ -38,7 +37,7 @@ ring_func!(bolt_respond, |p| {
 
         existing_headers
             .entry("Content-Type".to_string())
-            .or_insert_with(|| "text/html; charset=utf-8".to_string());
+            .or_insert_with(|| "text/plain; charset=utf-8".to_string());
 
         *server.current_response.lock() = Some(PendingResponse {
             status,
@@ -108,6 +107,38 @@ ring_func!(bolt_respond_file, |p| {
 
     let file_path = ring_get_string!(p, 2);
 
+    // Prevent path traversal and absolute paths
+    let path_obj = std::path::Path::new(&file_path);
+    for component in path_obj.components() {
+        match component {
+            std::path::Component::ParentDir => {
+                ring_error!(
+                    p,
+                    "respond_file: path traversal detected ('..' not allowed)"
+                );
+                return;
+            }
+            std::path::Component::RootDir => {
+                ring_error!(p, "respond_file: absolute paths not allowed");
+                return;
+            }
+            std::path::Component::Prefix(_) => {
+                ring_error!(
+                    p,
+                    "respond_file: path prefixes (e.g., Windows drive letters) not allowed"
+                );
+                return;
+            }
+            _ => {}
+        }
+    }
+
+    // Reject NUL bytes in path
+    if file_path.as_bytes().contains(&0) {
+        ring_error!(p, "respond_file: NUL byte detected in path");
+        return;
+    }
+
     let content_type = if ring_api_paracount(p) >= 3 && ring_api_isstring(p, 3) {
         ring_get_string!(p, 3).to_string()
     } else {
@@ -118,7 +149,7 @@ ring_func!(bolt_respond_file, |p| {
 
     unsafe {
         let server = &*(ptr as *const HttpServer);
-        let mut headers = HashMap::new();
+        let (mut headers, _) = PendingResponse::take_existing(&server.current_response);
         headers.insert("Content-Type".to_string(), content_type);
 
         let existing_cookies = server
@@ -164,7 +195,7 @@ ring_func!(bolt_respond_redirect, |p| {
 
     unsafe {
         let server = &*(ptr as *const HttpServer);
-        let mut headers = HashMap::new();
+        let (mut headers, _) = PendingResponse::take_existing(&server.current_response);
         headers.insert("Location".to_string(), url.to_string());
 
         // Preserve existing cookies
@@ -212,9 +243,16 @@ ring_func!(bolt_respond_status, |p| {
             .map(|r| r.cookies.clone())
             .unwrap_or_default();
 
+        let existing_headers = server
+            .current_response
+            .lock()
+            .as_ref()
+            .map(|r| r.headers.clone())
+            .unwrap_or_default();
+
         *server.current_response.lock() = Some(PendingResponse {
             status,
-            headers: HashMap::new(),
+            headers: existing_headers,
             cookies: existing_cookies,
             only_headers: false,
             body: ResponseBody::Bytes(Vec::new()),
@@ -291,6 +329,8 @@ ring_func!(bolt_urldecode, |p| {
     let input = ring_get_string!(p, 1);
     match urlencoding::decode(input) {
         Ok(decoded) => ring_ret_string!(p, &decoded),
-        Err(_) => ring_ret_string!(p, input),
+        Err(_) => {
+            ring_error!(p, "URL decode failed: invalid encoding");
+        }
     }
 });

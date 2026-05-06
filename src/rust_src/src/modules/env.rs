@@ -13,7 +13,7 @@ ring_func!(bolt_env_load, |p| {
     match dotenvy::dotenv() {
         Ok(_) => ring_ret_number!(p, 1.0),
         Err(_) => {
-            ring_error!(p, "env: failed to load .env file");
+            ring_ret_number!(p, 0.0);
         }
     }
 });
@@ -44,11 +44,22 @@ ring_func!(bolt_env_get, |p| {
     ring_ret_string!(p, &value);
 });
 
-/// bolt_env_set(key, value) — set env var
+pub static ENV_SET_ALLOWED: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(true);
+
+/// bolt_env_set(key, value) — set env var (only before bolt_listen is called)
 ring_func!(bolt_env_set, |p| {
     ring_check_paracount!(p, 2);
     ring_check_string!(p, 1);
     ring_check_string!(p, 2);
+
+    if !ENV_SET_ALLOWED.load(std::sync::atomic::Ordering::SeqCst) {
+        ring_error!(
+            p,
+            "env: cannot set environment variables after server has started"
+        );
+        return;
+    }
 
     let key = ring_get_string!(p, 1);
     let value = ring_get_string!(p, 2);

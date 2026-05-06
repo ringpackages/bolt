@@ -86,7 +86,7 @@ ring_func!(bolt_validate_length, |p| {
     let s = ring_get_string!(p, 1);
     let min = ring_get_number!(p, 2) as usize;
     let max = ring_get_number!(p, 3) as usize;
-    let len = s.len();
+    let len = s.chars().count();
     ring_ret_number!(p, if len >= min && len <= max { 1.0 } else { 0.0 });
 });
 
@@ -125,6 +125,6 @@ ring_func!(bolt_validate_numeric, |p| {
     ring_check_paracount!(p, 1);
     ring_check_string!(p, 1);
     let s = ring_get_string!(p, 1);
-    let ok = !s.is_empty() && s.parse::<f64>().is_ok();
+    let ok = !s.is_empty() && s.parse::<f64>().is_ok_and(|n| n.is_finite());
     ring_ret_number!(p, if ok { 1.0 } else { 0.0 });
 });
