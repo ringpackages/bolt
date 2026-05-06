@@ -33,3 +33,27 @@ Escape HTML special characters to entities.
 escaped = s.escapeHtml('<div class="test">Hello & goodbye</div>')
 # Returns: "&lt;div class=&quot;test&quot;&gt;Hello &amp; goodbye&lt;/div&gt;"
 ```
+
+### s.escapeAttr(cInput)
+Escape string for safe use in HTML attribute values (including unquoted).
+
+```ring
+escaped = s.escapeAttr('x onerror=alert(1)')
+# Returns: "x onerror&#x3D;alert(1)"
+```
+
+### s.escapeJs(cInput)
+Escape string for safe use in JavaScript string literals.
+
+```ring
+escaped = s.escapeJs("hello 'world'" + nl + "newline")
+# Returns: "hello \'world\' \n newline"
+```
+
+### s.escapeUrl(cInput)
+URL-encode string for safe embedding in URL query values.
+
+```ring
+encoded = s.escapeUrl("hello world&foo=bar")
+# Returns: "hello%20world%26foo%3Dbar"
+```

@@ -196,6 +196,18 @@ text = s.strict('<b>Bold</b> <script>evil()</script>')
 # Escape HTML entities
 escaped = s.escapeHtml('<div>Hello & goodbye</div>')
 # Returns: "&lt;div&gt;Hello &amp; goodbye&lt;/div&gt;"
+
+# Escape for HTML attributes (stricter)
+escaped = s.escapeAttr('x onerror=alert(1)')
+# Returns: "x onerror&#x3D;alert(1)"
+
+# Escape for JavaScript string literals
+escaped = s.escapeJs("hello 'world'" + nl + "newline")
+# Returns: "hello \'world\' \n newline"
+
+# URL-encode
+encoded = s.escapeUrl("hello world&foo=bar")
+# Returns: "hello%20world%26foo%3Dbar"
 ```
 
 **User content rendering example:**
