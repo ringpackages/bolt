@@ -935,6 +935,24 @@ class Bolt {
         bolt_set_body_limit(pHandle, nBytes)
     }
 
+    /// @brief Sets the maximum number of multipart form fields.
+    /// @param nMaxFields Maximum number of fields (default: 1000).
+    func setMultipartFieldCountLimit(nMaxFields) {
+        bolt_set_multipart_field_count_limit(pHandle, nMaxFields)
+    }
+
+    /// @brief Sets the maximum size per multipart form field.
+    /// @param nBytes Maximum field size in bytes (default: 10MB).
+    func setMultipartFieldSizeLimit(nBytes) {
+        bolt_set_multipart_field_size_limit(pHandle, nBytes)
+    }
+
+    /// @brief Forces Secure flag on cookies even without TLS.
+    /// @param lEnabled True to force Secure, false for default behavior.
+    func forceSecureCookies(lEnabled) {
+        bolt_set_force_secure_cookies(pHandle, lEnabled)
+    }
+
     /// @brief Sets the maximum number of session entries.
     /// @param nMaxEntries Maximum session count.
     func setSessionCapacity(nMaxEntries) {
@@ -1913,5 +1931,26 @@ class Sanitize {
     /// @return Escaped string safe for HTML insertion.
     func escapeHtml(cInput) {
         return bolt_escape_html(cInput)
+    }
+
+    /// @brief Escapes string for safe use in HTML attribute values.
+    /// @param cInput Raw string.
+    /// @return Escaped string safe for HTML attributes.
+    func escapeAttr(cInput) {
+        return bolt_escape_attr(cInput)
+    }
+
+    /// @brief Escapes string for safe use in JavaScript string literals.
+    /// @param cInput Raw string.
+    /// @return Escaped string safe for JS contexts.
+    func escapeJs(cInput) {
+        return bolt_escape_js(cInput)
+    }
+
+    /// @brief URL-encodes a string for safe use in URLs.
+    /// @param cInput Raw string.
+    /// @return URL-encoded string.
+    func escapeUrl(cInput) {
+        return bolt_escape_url(cInput)
     }
 }
