@@ -24,6 +24,7 @@ ring_func!(bolt_render_template, |p| {
     let data = ring_list_to_json(list);
 
     let mut env = minijinja::Environment::new();
+    env.set_fuel(Some(100_000));
     env.set_auto_escape_callback(|_| minijinja::AutoEscape::Html);
     if let Err(e) = env.add_template("template", template_str) {
         ring_error!(p, &format!("Template error: {}", e));
@@ -157,6 +158,7 @@ ring_func!(bolt_render_file, |p| {
         .unwrap_or("template");
 
     let mut env = minijinja::Environment::new();
+    env.set_fuel(Some(100_000));
     env.set_auto_escape_callback(|name| {
         if name.ends_with(".html") || name.ends_with(".htm") || name.ends_with(".xml") {
             minijinja::AutoEscape::Html

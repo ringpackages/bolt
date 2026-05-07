@@ -144,6 +144,7 @@ pub struct RequestContext {
     pub request_id: String,
     pub method: String,
     pub path: String,
+    pub uri: String,
     pub params: HashMap<String, String>,
     pub query: HashMap<String, String>,
     pub form: HashMap<String, String>,
@@ -211,7 +212,10 @@ pub enum WsOutMessage {
     Text(String),
     Binary(Vec<u8>),
     Pong(bytes::Bytes),
-    Close,
+    Close {
+        code: Option<u16>,
+        reason: Option<String>,
+    },
 }
 
 /// WebSocket event context (accessible from Ring during WS callbacks)
@@ -1311,6 +1315,7 @@ async fn run_server(
 
         for static_route in &static_routes {
             let url_path = static_route.url_path.trim_end_matches('/');
+            let url_path = if url_path.is_empty() { "/" } else { url_path };
             let dir_path = static_route.dir_path.clone();
             let canonical_root = std::path::Path::new(&dir_path).canonicalize().ok();
             app = app.service(
@@ -1408,7 +1413,8 @@ async fn run_server(
             .wrap(Condition::new(compression, Compress::default()))
             .wrap(Condition::new(cors_config.enabled, cors))
     })
-    .keep_alive(Duration::from_millis(request_timeout_ms));
+    .keep_alive(Duration::from_millis(request_timeout_ms))
+    .h1_allow_half_closed(false);
 
     let addr = format!("{}:{}", host, port);
 
@@ -1756,7 +1762,7 @@ async fn handle_request(
     let peer_addr = req
         .peer_addr()
         .map(|a| a.ip().to_string())
-        .unwrap_or_else(|| "unknown".to_string());
+        .unwrap_or_default();
     let client_ip_str = resolve_client_ip(&peer_addr, &headers, &state.proxy_whitelist);
 
     if !state.ip_whitelist.is_empty() || !state.ip_blacklist.is_empty() {
@@ -1782,26 +1788,28 @@ async fn handle_request(
         .find(|r| r.handler_name == handler_name)
         .and_then(|r| r.rate_limit)
     {
-        let limiter = state
-            .route_limiters
-            .entry(handler_name.clone())
-            .or_insert_with(|| {
-                let burst =
-                    NonZeroU32::new(max_req as u32).unwrap_or_else(|| NonZeroU32::new(1).unwrap());
-                let max_req_u32 = (max_req as u32).max(1);
-                let window_nanos = Duration::from_secs(window_secs.max(1)).as_nanos();
-                let period_nanos = (window_nanos / max_req_u32 as u128).max(1) as u64;
-                let quota = Quota::with_period(Duration::from_nanos(period_nanos))
-                    .unwrap()
-                    .allow_burst(burst);
-                Arc::new(RateLimiter::keyed(quota))
-            })
-            .clone();
-        if limiter.check_key(&client_ip_str).is_err() {
-            return HttpResponse::TooManyRequests()
-                .insert_header(("X-Request-Id", request_id_str.clone()))
-                .body("Too Many Requests");
-        }
+        if !client_ip_str.is_empty() {
+            let limiter = state
+                .route_limiters
+                .entry(handler_name.clone())
+                .or_insert_with(|| {
+                    let burst = NonZeroU32::new(max_req as u32)
+                        .unwrap_or_else(|| NonZeroU32::new(1).unwrap());
+                    let max_req_u32 = (max_req as u32).max(1);
+                    let window_nanos = Duration::from_secs(window_secs.max(1)).as_nanos();
+                    let period_nanos = (window_nanos / max_req_u32 as u128).max(1) as u64;
+                    let quota = Quota::with_period(Duration::from_nanos(period_nanos))
+                        .unwrap()
+                        .allow_burst(burst);
+                    Arc::new(RateLimiter::keyed(quota))
+                })
+                .clone();
+            if limiter.check_key(&client_ip_str).is_err() {
+                return HttpResponse::TooManyRequests()
+                    .insert_header(("X-Request-Id", request_id_str.clone()))
+                    .body("Too Many Requests");
+            }
+        } // skip rate limiting when client IP is unknown
     }
 
     // Read and verify signed session ID to prevent fixation attacks
@@ -1831,6 +1839,7 @@ async fn handle_request(
         request_id: request_id_str.clone(),
         method,
         path: matched_path,
+        uri: req.uri().to_string(),
         params: path_params,
         query: query_inner,
         form,
@@ -1887,7 +1896,18 @@ async fn handle_request(
                     let mut builder = HttpResponse::build(status);
                     builder.insert_header(("X-Request-Id", req_id_header.clone()));
 
+                    let blocked = [
+                        "transfer-encoding",
+                        "content-length",
+                        "connection",
+                        "host",
+                        "upgrade",
+                    ];
                     for (key, value) in headers {
+                        let key_lower = key.to_lowercase();
+                        if blocked.contains(&key_lower.as_str()) {
+                            continue;
+                        }
                         builder.insert_header((key, value));
                     }
 
@@ -1915,7 +1935,18 @@ async fn handle_request(
                             );
                         }
 
+                        let blocked = [
+                            "transfer-encoding",
+                            "content-length",
+                            "connection",
+                            "host",
+                            "upgrade",
+                        ];
                         for (key, value) in headers {
+                            let key_lower = key.to_lowercase();
+                            if blocked.contains(&key_lower.as_str()) {
+                                continue;
+                            }
                             if let (Ok(k), Ok(v)) = (
                                 actix_web::http::header::HeaderName::try_from(key.as_str()),
                                 actix_web::http::header::HeaderValue::from_str(&value),
@@ -1938,9 +1969,10 @@ async fn handle_request(
                 },
             }
         }
-        None => HttpResponse::InternalServerError()
+        None => HttpResponse::ServiceUnavailable()
             .insert_header(("X-Request-Id", req_id_header))
-            .body("No response from handler"),
+            .insert_header(("Retry-After", "5"))
+            .body("Server overloaded"),
     };
 
     http_response
@@ -2031,6 +2063,27 @@ ring_func!(bolt_req_path, |p| {
         let guard = server.current_request.lock();
         if let Some(ref ctx) = *guard {
             ring_ret_string!(p, &ctx.path);
+        } else {
+            ring_ret_string!(p, "");
+        }
+    }
+});
+
+/// bolt_req_uri(server) → string
+ring_func!(bolt_req_uri, |p| {
+    ring_check_paracount!(p, 1);
+    ring_check_cpointer!(p, 1);
+
+    let ptr = ring_api_getcpointer(p, 1, HTTP_SERVER_TYPE);
+    if ptr.is_null() {
+        return;
+    }
+
+    unsafe {
+        let server = &*(ptr as *const HttpServer);
+        let guard = server.current_request.lock();
+        if let Some(ref ctx) = *guard {
+            ring_ret_string!(p, &ctx.uri);
         } else {
             ring_ret_string!(p, "");
         }
@@ -3623,6 +3676,7 @@ mod tests {
             request_id: "req-1".into(),
             method: "GET".into(),
             path: "/users/1".into(),
+            uri: "/users/1".into(),
             params: HashMap::new(),
             query: HashMap::new(),
             form: HashMap::new(),
@@ -4557,6 +4611,7 @@ mod tests {
             request_id: String::new(),
             method: String::new(),
             path: String::new(),
+            uri: String::new(),
             params: HashMap::new(),
             query: HashMap::new(),
             form: HashMap::new(),

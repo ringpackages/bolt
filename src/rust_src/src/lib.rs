@@ -50,6 +50,7 @@ ring_libinit! {
     "bolt_req_request_id" => bolt_req_request_id,
     "bolt_req_method" => bolt_req_method,
     "bolt_req_path" => bolt_req_path,
+    "bolt_req_uri" => bolt_req_uri,
     "bolt_req_param" => bolt_req_param,
     "bolt_req_query" => bolt_req_query,
     "bolt_req_header" => bolt_req_header,

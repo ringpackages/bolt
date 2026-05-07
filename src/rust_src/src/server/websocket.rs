@@ -159,8 +159,12 @@ pub(crate) async fn handle_websocket(
                                 break;
                             }
                         }
-                        Some(WsOutMessage::Close) => {
-                            let _ = session_clone.close(None).await;
+                        Some(WsOutMessage::Close { code, reason }) => {
+                            let close_reason = code.map(|c| actix_ws::CloseReason {
+                                code: actix_ws::CloseCode::from(c),
+                                description: reason,
+                            });
+                            let _ = session_clone.close(close_reason).await;
                             break;
                         }
                         None => break,
@@ -603,7 +607,10 @@ ring_func!(bolt_ws_close_client, |p| {
     unsafe {
         let server = &*(ptr as *const HttpServer);
         if let Some((_, tx)) = server.ws_clients.remove(client_id) {
-            let _ = tx.try_send(WsOutMessage::Close);
+            let _ = tx.try_send(WsOutMessage::Close {
+                code: None,
+                reason: None,
+            });
 
             if let Some((_, ip)) = server.ws_client_ips.remove(client_id) {
                 server
@@ -678,6 +685,10 @@ ring_func!(bolt_ws_room_join, |p| {
 
     unsafe {
         let server = &*(ptr as *const HttpServer);
+        if !server.ws_clients.contains_key(client_id) {
+            ring_error!(p, "WebSocket: client not found");
+            return;
+        }
         server
             .ws_rooms
             .entry(room.to_string())
