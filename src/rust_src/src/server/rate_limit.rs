@@ -18,7 +18,7 @@ static RATE_LIMIT_WINDOW_START: AtomicU64 = AtomicU64::new(0);
 static RATE_LIMIT_ENABLED: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(false);
 
-/// bolt_rate_limit(max_requests, window_seconds) - configure rate limiting
+/// bolt_rate_limit(max_requests, window_seconds) → configure rate limiting
 ring_func!(bolt_rate_limit, |p| {
     ring_check_paracount!(p, 2);
     ring_check_number!(p, 1);
@@ -44,7 +44,7 @@ ring_func!(bolt_rate_limit, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_check_rate_limit() -> 1 if allowed, 0 if rate limited
+/// bolt_check_rate_limit() → 1 if allowed, 0 if rate limited
 ring_func!(bolt_check_rate_limit, |p| {
     ring_check_paracount!(p, 0);
 
@@ -97,7 +97,7 @@ ring_func!(bolt_check_rate_limit, |p| {
     }
 });
 
-/// bolt_route_rate_limit(server, handler_name, max_requests, window_seconds)
+/// bolt_route_rate_limit(server, handler_name, max_requests, window_seconds) → set per-route rate limit
 ring_func!(bolt_route_rate_limit, |p| {
     ring_check_paracount!(p, 4);
     ring_check_cpointer!(p, 1);

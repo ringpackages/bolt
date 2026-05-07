@@ -11,7 +11,7 @@ use crate::HTTP_SERVER_TYPE;
 use super::HttpServer;
 use crate::modules::json::ring_list_to_json;
 
-/// bolt_render_template(server, template, data) - render template string with MiniJinja
+/// bolt_render_template(server, template, data) → render template string with MiniJinja
 ring_func!(bolt_render_template, |p| {
     ring_check_paracount!(p, 3);
     ring_check_cpointer!(p, 1);
@@ -46,7 +46,7 @@ ring_func!(bolt_render_template, |p| {
     }
 });
 
-/// bolt_render_file(server, filepath, data) - render template file with MiniJinja
+/// bolt_render_file(server, filepath, data) → render template file with MiniJinja
 ring_func!(bolt_render_file, |p| {
     ring_check_paracount!(p, 3);
     ring_check_cpointer!(p, 1);

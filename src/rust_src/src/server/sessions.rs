@@ -54,7 +54,7 @@ pub fn generate_session_id() -> String {
     uuid::Uuid::new_v4().to_string()
 }
 
-/// bolt_session_set(server, key, value) - set session value
+/// bolt_session_set(server, key, value) → set session value
 ring_func!(bolt_session_set, |p| {
     ring_check_paracount!(p, 3);
     ring_check_cpointer!(p, 1);
@@ -135,7 +135,7 @@ ring_func!(bolt_session_set, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_session_get(server, key) -> value
+/// bolt_session_get(server, key) → value
 ring_func!(bolt_session_get, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -172,7 +172,7 @@ ring_func!(bolt_session_get, |p| {
     }
 });
 
-/// bolt_session_delete(server, key) - delete session key
+/// bolt_session_delete(server, key) → delete session key
 ring_func!(bolt_session_delete, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -208,7 +208,7 @@ ring_func!(bolt_session_delete, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_session_regenerate(server) - regenerate session ID (prevents fixation)
+/// bolt_session_regenerate(server) → regenerate session ID (prevents fixation)
 ring_func!(bolt_session_regenerate, |p| {
     ring_check_paracount!(p, 1);
     ring_check_cpointer!(p, 1);
@@ -285,7 +285,7 @@ ring_func!(bolt_session_regenerate, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_session_clear(server) - clear all session data
+/// bolt_session_clear(server) → clear all session data
 ring_func!(bolt_session_clear, |p| {
     ring_check_paracount!(p, 1);
     ring_check_cpointer!(p, 1);

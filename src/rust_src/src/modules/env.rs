@@ -6,7 +6,7 @@
 
 use ring_lang_rs::*;
 
-/// bolt_env_load() — load .env from current directory
+/// bolt_env_load() → number (1 on success) — load .env from current directory
 ring_func!(bolt_env_load, |p| {
     ring_check_paracount!(p, 0);
 
@@ -18,7 +18,7 @@ ring_func!(bolt_env_load, |p| {
     }
 });
 
-/// bolt_env_load_file(path) — load specific .env file
+/// bolt_env_load_file(path) → number (1 on success) — load specific .env file
 ring_func!(bolt_env_load_file, |p| {
     ring_check_paracount!(p, 1);
     ring_check_string!(p, 1);
@@ -47,7 +47,7 @@ ring_func!(bolt_env_get, |p| {
 pub static ENV_SET_ALLOWED: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(true);
 
-/// bolt_env_set(key, value) — set env var (only before bolt_listen is called)
+/// bolt_env_set(key, value) → number (1 on success) — set env var (only before bolt_listen is called)
 ring_func!(bolt_env_set, |p| {
     ring_check_paracount!(p, 2);
     ring_check_string!(p, 1);

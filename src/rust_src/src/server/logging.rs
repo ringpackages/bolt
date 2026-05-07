@@ -24,7 +24,7 @@ fn log_level_num(level: &str) -> u8 {
     }
 }
 
-/// bolt_logging(enabled) - enable/disable request logging
+/// bolt_logging(enabled) → enable/disable request logging
 ring_func!(bolt_logging, |p| {
     ring_check_paracount_range!(p, 0, 1);
 
@@ -38,7 +38,7 @@ ring_func!(bolt_logging, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_log(message, level?) - log a message with optional level (debug/info/warn/error)
+/// bolt_log(message, level?) → log a message with optional level (debug/info/warn/error)
 ring_func!(bolt_log, |p| {
     ring_check_paracount_range!(p, 1, 2);
     ring_check_string!(p, 1);
@@ -89,7 +89,7 @@ ring_func!(bolt_log, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_set_log_level(level) - set minimum log level (debug/info/warn/error)
+/// bolt_set_log_level(level) → set minimum log level (debug/info/warn/error)
 ring_func!(bolt_set_log_level, |p| {
     ring_check_paracount!(p, 1);
     ring_check_string!(p, 1);

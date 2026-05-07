@@ -15,7 +15,7 @@ use crate::HTTP_SERVER_TYPE;
 // CSRF
 // ========================================
 
-/// bolt_enable_csrf(server, secret) - enable CSRF protection
+/// bolt_enable_csrf(server, secret) → enable CSRF protection
 ring_func!(bolt_enable_csrf, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -36,7 +36,7 @@ ring_func!(bolt_enable_csrf, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_csrf_token(server) -> generate signed CSRF token (session_id.timestamp.hmac)
+/// bolt_csrf_token(server) → generate signed CSRF token (session_id.timestamp.hmac)
 ring_func!(bolt_csrf_token, |p| {
     ring_check_paracount!(p, 1);
     ring_check_cpointer!(p, 1);
@@ -115,7 +115,7 @@ ring_func!(bolt_csrf_token, |p| {
     ring_ret_string!(p, &token);
 });
 
-/// bolt_verify_csrf(server, token) -> 1 if valid (checks session_id + HMAC + 1h expiry)
+/// bolt_verify_csrf(server, token) → 1 if valid (checks session_id + HMAC + 1h expiry)
 ring_func!(bolt_verify_csrf, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -228,7 +228,7 @@ struct JwtClaims {
     iat: Option<u64>,
 }
 
-/// bolt_jwt_encode(data, secret, expires_in_seconds) -> token  (data can be list or json string)
+/// bolt_jwt_encode(data, secret, expires_in_seconds) → token  (data can be list or json string)
 ring_func!(bolt_jwt_encode, |p| {
     ring_check_paracount_range!(p, 2, 3);
     ring_check_string!(p, 2);
@@ -279,7 +279,7 @@ ring_func!(bolt_jwt_encode, |p| {
     }
 });
 
-/// bolt_jwt_decode(token, secret) -> json data or empty on error
+/// bolt_jwt_decode(token, secret) → json data or empty on error
 ring_func!(bolt_jwt_decode, |p| {
     ring_check_paracount!(p, 2);
     ring_check_string!(p, 1);
@@ -311,7 +311,7 @@ ring_func!(bolt_jwt_decode, |p| {
     }
 });
 
-/// bolt_jwt_verify(token, secret) -> 1 if valid, 0 if invalid
+/// bolt_jwt_verify(token, secret) → 1 if valid, 0 if invalid
 ring_func!(bolt_jwt_verify, |p| {
     ring_check_paracount!(p, 2);
     ring_check_string!(p, 1);
@@ -344,7 +344,7 @@ ring_func!(bolt_jwt_verify, |p| {
 // Basic Auth
 // ========================================
 
-/// bolt_basic_auth_decode(auth_header) -> json with username and password
+/// bolt_basic_auth_decode(auth_header) → json with username and password
 ring_func!(bolt_basic_auth_decode, |p| {
     ring_check_paracount!(p, 1);
     ring_check_string!(p, 1);
@@ -384,7 +384,7 @@ ring_func!(bolt_basic_auth_decode, |p| {
     ring_ret_string!(p, &result.to_string());
 });
 
-/// bolt_basic_auth_encode(username, password) -> "Basic xxx" header value
+/// bolt_basic_auth_encode(username, password) → "Basic xxx" header value
 ring_func!(bolt_basic_auth_encode, |p| {
     ring_check_paracount!(p, 2);
     ring_check_string!(p, 1);

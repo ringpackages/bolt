@@ -7,7 +7,7 @@
 use ring_lang_rs::*;
 use serde_json::{Map, Value};
 
-/// bolt_json_encode(ring_list) -> json_string
+/// bolt_json_encode(ring_list) → json_string
 /// Converts a Ring list to JSON string
 ring_func!(bolt_json_encode, |p| {
     ring_check_paracount!(p, 1);
@@ -29,7 +29,7 @@ ring_func!(bolt_json_encode, |p| {
     }
 });
 
-/// bolt_json_decode(json_string) -> ring_list
+/// bolt_json_decode(json_string) → ring_list
 /// Parses JSON string to Ring list
 ring_func!(bolt_json_decode, |p| {
     ring_check_paracount!(p, 1);
@@ -51,7 +51,7 @@ ring_func!(bolt_json_decode, |p| {
     }
 });
 
-/// bolt_json_pretty(ring_list) -> json_string (formatted)
+/// bolt_json_pretty(ring_list) → json_string (formatted)
 ring_func!(bolt_json_pretty, |p| {
     ring_check_paracount!(p, 1);
 

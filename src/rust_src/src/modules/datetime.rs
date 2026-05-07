@@ -35,7 +35,7 @@ ring_func!(bolt_datetime_timestamp_ms, |p| {
     ring_ret_number!(p, ts);
 });
 
-/// bolt_datetime_format(timestamp, format_str) → string
+/// bolt_datetime_format(timestamp, format_str) → string (0 on invalid timestamp)
 ring_func!(bolt_datetime_format, |p| {
     ring_check_paracount!(p, 2);
     ring_check_number!(p, 1);

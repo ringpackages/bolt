@@ -33,7 +33,7 @@ fn extract_path_params(path: &str) -> Vec<String> {
     params
 }
 
-/// bolt_openapi_spec(server, spec_json) - set OpenAPI spec JSON
+/// bolt_openapi_spec(server, spec_json) → set OpenAPI spec JSON
 ring_func!(bolt_openapi_spec, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -54,7 +54,7 @@ ring_func!(bolt_openapi_spec, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_openapi_route(server) - enable OpenAPI docs (spec generated at server start)
+/// bolt_openapi_route(server) → enable OpenAPI docs (spec generated at server start)
 ring_func!(bolt_openapi_route, |p| {
     ring_check_paracount!(p, 1);
     ring_check_cpointer!(p, 1);
@@ -72,7 +72,7 @@ ring_func!(bolt_openapi_route, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_openapi_info(server, title, version, description) - set OpenAPI metadata
+/// bolt_openapi_info(server, title, version, description) → set OpenAPI metadata
 ring_func!(bolt_openapi_info, |p| {
     ring_check_paracount!(p, 4);
     ring_check_cpointer!(p, 1);
@@ -111,7 +111,7 @@ ring_func!(bolt_openapi_info, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_route_describe(server, method, path, description) - set route description
+/// bolt_route_describe(server, method, path, description) → set route description
 ring_func!(bolt_route_describe, |p| {
     ring_check_paracount!(p, 4);
     ring_check_cpointer!(p, 1);
@@ -148,7 +148,7 @@ ring_func!(bolt_route_describe, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_route_tag(server, method, path, tag) - add tag to route
+/// bolt_route_tag(server, method, path, tag) → add tag to route
 ring_func!(bolt_route_tag, |p| {
     ring_check_paracount!(p, 4);
     ring_check_cpointer!(p, 1);
@@ -185,7 +185,7 @@ ring_func!(bolt_route_tag, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_add_constraint(server, handler_name, param_name, pattern) - add route param constraint
+/// bolt_add_constraint(server, handler_name, param_name, pattern) → add route param constraint
 ring_func!(bolt_add_constraint, |p| {
     ring_check_paracount!(p, 4);
     ring_check_cpointer!(p, 1);

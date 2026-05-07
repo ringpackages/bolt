@@ -649,7 +649,7 @@ fn next_request_id() -> u64 {
 // Core Server Ring Functions
 // ========================================
 
-/// bolt_new() -> HttpServer
+/// bolt_new() → HttpServer
 ring_func!(bolt_new, |p| {
     ring_check_paracount!(p, 0);
 
@@ -659,7 +659,7 @@ ring_func!(bolt_new, |p| {
     ring_ret_cpointer!(p, ptr, HTTP_SERVER_TYPE);
 });
 
-/// bolt_set_host(server, host) - set IP address to listen on
+/// bolt_set_host(server, host) → set IP address to listen on
 ring_func!(bolt_set_host, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -680,7 +680,7 @@ ring_func!(bolt_set_host, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_route(server, method, path, handler_name)
+/// bolt_route(server, method, path, handler_name) → register HTTP route
 ring_func!(bolt_route, |p| {
     ring_check_paracount!(p, 4);
     ring_check_cpointer!(p, 1);
@@ -706,7 +706,7 @@ ring_func!(bolt_route, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_listen(server, port) - starts server (blocks!)
+/// bolt_listen(server, port) → starts server (blocks!)
 ring_func!(bolt_listen, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -1950,7 +1950,7 @@ async fn handle_request(
 // Shutdown
 // ========================================
 
-/// bolt_stop(server) - trigger graceful shutdown
+/// bolt_stop(server) → trigger graceful shutdown
 ring_func!(bolt_stop, |p| {
     ring_check_paracount!(p, 1);
     ring_check_cpointer!(p, 1);
@@ -1974,7 +1974,7 @@ ring_func!(bolt_stop, |p| {
 // Request Context Getters
 // ========================================
 
-/// bolt_req_method(server) -> string
+/// bolt_req_method(server) → string
 ring_func!(bolt_req_method, |p| {
     ring_check_paracount!(p, 1);
     ring_check_cpointer!(p, 1);
@@ -1995,7 +1995,7 @@ ring_func!(bolt_req_method, |p| {
     }
 });
 
-/// bolt_req_request_id(server) -> string (UUID)
+/// bolt_req_request_id(server) → string (UUID)
 ring_func!(bolt_req_request_id, |p| {
     ring_check_paracount!(p, 1);
     ring_check_cpointer!(p, 1);
@@ -2016,7 +2016,7 @@ ring_func!(bolt_req_request_id, |p| {
     }
 });
 
-/// bolt_req_path(server) -> string
+/// bolt_req_path(server) → string
 ring_func!(bolt_req_path, |p| {
     ring_check_paracount!(p, 1);
     ring_check_cpointer!(p, 1);
@@ -2037,7 +2037,7 @@ ring_func!(bolt_req_path, |p| {
     }
 });
 
-/// bolt_req_param(server, name) -> string
+/// bolt_req_param(server, name) → string
 ring_func!(bolt_req_param, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -2062,7 +2062,7 @@ ring_func!(bolt_req_param, |p| {
     }
 });
 
-/// bolt_req_query(server, name) -> string
+/// bolt_req_query(server, name) → string
 ring_func!(bolt_req_query, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -2087,7 +2087,7 @@ ring_func!(bolt_req_query, |p| {
     }
 });
 
-/// bolt_req_header(server, name) -> string
+/// bolt_req_header(server, name) → string
 ring_func!(bolt_req_header, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -2112,7 +2112,7 @@ ring_func!(bolt_req_header, |p| {
     }
 });
 
-/// bolt_req_body(server) -> string
+/// bolt_req_body(server) → string
 ring_func!(bolt_req_body, |p| {
     ring_check_paracount!(p, 1);
     ring_check_cpointer!(p, 1);
@@ -2134,7 +2134,7 @@ ring_func!(bolt_req_body, |p| {
     }
 });
 
-/// bolt_req_form_field(server, name) -> value from form body (urlencoded or multipart)
+/// bolt_req_form_field(server, name) → value from form body (urlencoded or multipart)
 ring_func!(bolt_req_form_field, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -2159,7 +2159,7 @@ ring_func!(bolt_req_form_field, |p| {
     }
 });
 
-/// bolt_req_client_ip(server) -> client IP string
+/// bolt_req_client_ip(server) → client IP string
 ring_func!(bolt_req_client_ip, |p| {
     ring_check_paracount!(p, 1);
     ring_check_cpointer!(p, 1);
@@ -2187,7 +2187,7 @@ ring_func!(bolt_req_client_ip, |p| {
 // Static Files, Middleware, CORS
 // ========================================
 
-/// bolt_static(server, url_path, dir_path)
+/// bolt_static(server, url_path, dir_path) → serve static files from directory
 ring_func!(bolt_static, |p| {
     ring_check_paracount!(p, 3);
     ring_check_cpointer!(p, 1);
@@ -2211,7 +2211,7 @@ ring_func!(bolt_static, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_use(server, middleware_name)
+/// bolt_use(server, middleware_name) → register global middleware
 ring_func!(bolt_use, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -2233,7 +2233,7 @@ ring_func!(bolt_use, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_cors(server, enabled) - enable/disable CORS
+/// bolt_cors(server, enabled) → enable/disable CORS
 ring_func!(bolt_cors, |p| {
     ring_check_paracount_range!(p, 1, 2);
     ring_check_cpointer!(p, 1);
@@ -2258,7 +2258,7 @@ ring_func!(bolt_cors, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_cors_origin(server, origin) - add allowed origin
+/// bolt_cors_origin(server, origin) → add allowed origin
 ring_func!(bolt_cors_origin, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -2284,7 +2284,7 @@ ring_func!(bolt_cors_origin, |p| {
 // Cookies
 // ========================================
 
-/// bolt_req_cookie(server, name) -> cookie value
+/// bolt_req_cookie(server, name) → cookie value
 ring_func!(bolt_req_cookie, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -2309,7 +2309,7 @@ ring_func!(bolt_req_cookie, |p| {
     }
 });
 
-/// bolt_set_cookie(server, name, value, options) - set response cookie
+/// bolt_set_cookie(server, name, value, options) → set response cookie
 ring_func!(bolt_set_cookie, |p| {
     ring_check_paracount_range!(p, 3, 4);
     ring_check_cpointer!(p, 1);
@@ -2370,7 +2370,7 @@ ring_func!(bolt_set_cookie, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_sign_cookie(value, secret) -> signed value using cookie crate
+/// bolt_sign_cookie(value, secret) → signed value using cookie crate
 /// Secrets of any length are accepted: short secrets are hashed to 32 bytes via SHA-256
 ring_func!(bolt_sign_cookie, |p| {
     ring_check_paracount!(p, 2);
@@ -2400,7 +2400,7 @@ ring_func!(bolt_sign_cookie, |p| {
     ring_ret_string!(p, &signed);
 });
 
-/// bolt_verify_cookie(signed_value, secret) -> original value or ""
+/// bolt_verify_cookie(signed_value, secret) → original value or ""
 /// Secrets of any length are accepted: short secrets are hashed to 32 bytes via SHA-256
 ring_func!(bolt_verify_cookie, |p| {
     ring_check_paracount!(p, 2);
@@ -2431,7 +2431,7 @@ ring_func!(bolt_verify_cookie, |p| {
 // Compression & Headers
 // ========================================
 
-/// bolt_compression(server, enabled) - enable/disable gzip compression
+/// bolt_compression(server, enabled) → enable/disable gzip compression
 ring_func!(bolt_compression, |p| {
     ring_check_paracount_range!(p, 1, 2);
     ring_check_cpointer!(p, 1);
@@ -2456,7 +2456,7 @@ ring_func!(bolt_compression, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_set_header(server, name, value) - set response header
+/// bolt_set_header(server, name, value) → set response header
 ring_func!(bolt_set_header, |p| {
     ring_check_paracount!(p, 3);
     ring_check_cpointer!(p, 1);
@@ -2497,7 +2497,7 @@ ring_func!(bolt_set_header, |p| {
 // Utilities: Time, Handler, UUID, SHA-256, TLS
 // ========================================
 
-/// bolt_unixtime() -> current Unix timestamp in seconds
+/// bolt_unixtime() → current Unix timestamp in seconds
 ring_func!(bolt_unixtime, |p| {
     ring_check_paracount!(p, 0);
 
@@ -2510,7 +2510,7 @@ ring_func!(bolt_unixtime, |p| {
     ring_ret_number!(p, timestamp as f64);
 });
 
-/// bolt_unixtime_ms() -> current Unix timestamp in milliseconds
+/// bolt_unixtime_ms() → current Unix timestamp in milliseconds
 ring_func!(bolt_unixtime_ms, |p| {
     ring_check_paracount!(p, 0);
 
@@ -2523,7 +2523,7 @@ ring_func!(bolt_unixtime_ms, |p| {
     ring_ret_number!(p, timestamp as f64);
 });
 
-/// bolt_req_handler(server) -> current handler name
+/// bolt_req_handler(server) → current handler name
 ring_func!(bolt_req_handler, |p| {
     ring_check_paracount!(p, 1);
     ring_check_cpointer!(p, 1);
@@ -2544,7 +2544,7 @@ ring_func!(bolt_req_handler, |p| {
     }
 });
 
-/// bolt_hash_sha256(data) -> hex hash
+/// bolt_hash_sha256(data) → hex hash
 ring_func!(bolt_hash_sha256, |p| {
     ring_check_paracount!(p, 1);
     ring_check_string!(p, 1);
@@ -2560,7 +2560,7 @@ ring_func!(bolt_hash_sha256, |p| {
     ring_ret_string!(p, &hex);
 });
 
-/// bolt_uuid() -> generate UUID v4
+/// bolt_uuid() → generate UUID v4
 ring_func!(bolt_uuid, |p| {
     ring_check_paracount!(p, 0);
 
@@ -2568,7 +2568,7 @@ ring_func!(bolt_uuid, |p| {
     ring_ret_string!(p, &id.to_string());
 });
 
-/// bolt_tls(server, cert_path, key_path) - enable HTTPS
+/// bolt_tls(server, cert_path, key_path) → enable HTTPS
 ring_func!(bolt_tls, |p| {
     ring_check_paracount!(p, 3);
     ring_check_cpointer!(p, 1);
@@ -2598,7 +2598,7 @@ ring_func!(bolt_tls, |p| {
 // ETag
 // ========================================
 
-/// bolt_etag(content) -> generate ETag hash
+/// bolt_etag(content) → generate ETag hash
 ring_func!(bolt_etag, |p| {
     ring_check_paracount!(p, 1);
     ring_check_string!(p, 1);
@@ -2618,7 +2618,7 @@ ring_func!(bolt_etag, |p| {
 // Server Configuration
 // ========================================
 
-/// bolt_set_timeout(server, ms) - set request timeout
+/// bolt_set_timeout(server, ms) → set request timeout
 ring_func!(bolt_set_timeout, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -2639,7 +2639,7 @@ ring_func!(bolt_set_timeout, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_set_body_limit(server, bytes) - set max body size
+/// bolt_set_body_limit(server, bytes) → set max body size
 ring_func!(bolt_set_body_limit, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -2663,7 +2663,7 @@ ring_func!(bolt_set_body_limit, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_set_multipart_field_count_limit(server, max_fields) - set max multipart fields
+/// bolt_set_multipart_field_count_limit(server, max_fields) → set max multipart fields
 ring_func!(bolt_set_multipart_field_count_limit, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -2685,7 +2685,7 @@ ring_func!(bolt_set_multipart_field_count_limit, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_set_multipart_field_size_limit(server, bytes) - set max bytes per multipart field
+/// bolt_set_multipart_field_size_limit(server, bytes) → set max bytes per multipart field
 ring_func!(bolt_set_multipart_field_size_limit, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -2707,7 +2707,7 @@ ring_func!(bolt_set_multipart_field_size_limit, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_set_session_capacity(server, max_entries) - set session cache max capacity
+/// bolt_set_session_capacity(server, max_entries) → set session cache max capacity
 ring_func!(bolt_set_session_capacity, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -2728,7 +2728,7 @@ ring_func!(bolt_set_session_capacity, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_set_force_secure_cookies(server, enabled) - force Secure flag on session cookies even without TLS
+/// bolt_force_secure_cookies(server) → force Secure flag on session cookies even without TLS
 ring_func!(bolt_force_secure_cookies, |p| {
     ring_check_paracount!(p, 1);
     ring_check_cpointer!(p, 1);
@@ -2746,7 +2746,7 @@ ring_func!(bolt_force_secure_cookies, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_set_session_ttl(server, seconds) - set session TTL in seconds
+/// bolt_set_session_ttl(server, seconds) → set session TTL in seconds
 ring_func!(bolt_set_session_ttl, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -2767,7 +2767,7 @@ ring_func!(bolt_set_session_ttl, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_set_cache_capacity(server, max_entries) - set cache max capacity
+/// bolt_set_cache_capacity(server, max_entries) → set cache max capacity
 ring_func!(bolt_set_cache_capacity, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -2788,7 +2788,7 @@ ring_func!(bolt_set_cache_capacity, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_set_cache_ttl(server, seconds) - set cache default TTL in seconds
+/// bolt_set_cache_ttl(server, seconds) → set cache default TTL in seconds
 ring_func!(bolt_set_cache_ttl, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -2809,7 +2809,7 @@ ring_func!(bolt_set_cache_ttl, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_ip_whitelist(server, ip) - add IP to whitelist
+/// bolt_ip_whitelist(server, ip) → add IP to whitelist
 ring_func!(bolt_ip_whitelist, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -2836,7 +2836,7 @@ ring_func!(bolt_ip_whitelist, |p| {
     }
 });
 
-/// bolt_ip_blacklist(server, ip) - add IP to blacklist
+/// bolt_ip_blacklist(server, ip) → add IP to blacklist
 ring_func!(bolt_ip_blacklist, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -2863,7 +2863,7 @@ ring_func!(bolt_ip_blacklist, |p| {
     }
 });
 
-/// bolt_proxy_whitelist(server, ip) - add trusted proxy IP
+/// bolt_proxy_whitelist(server, ip) → add trusted proxy IP
 ring_func!(bolt_proxy_whitelist, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -2884,7 +2884,7 @@ ring_func!(bolt_proxy_whitelist, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_ws_max_connections(server, max) - set max total WebSocket connections
+/// bolt_ws_max_connections(server, max) → set max total WebSocket connections
 ring_func!(bolt_ws_max_connections, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -2905,7 +2905,7 @@ ring_func!(bolt_ws_max_connections, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_ws_max_per_ip(server, max) - set max WebSocket connections per IP
+/// bolt_ws_max_per_ip(server, max) → set max WebSocket connections per IP
 ring_func!(bolt_ws_max_per_ip, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -2930,7 +2930,7 @@ ring_func!(bolt_ws_max_per_ip, |p| {
 // Health Check
 // ========================================
 
-/// bolt_health_status(server) -> JSON health status
+/// bolt_health_status(server) → JSON health status
 ring_func!(bolt_health_status, |p| {
     ring_check_paracount!(p, 1);
     ring_check_cpointer!(p, 1);
@@ -2957,7 +2957,7 @@ ring_func!(bolt_health_status, |p| {
 // JSON Schema Validation
 // ========================================
 
-/// bolt_validate_json(json_str, schema_str) -> 1 if valid, 0 if not
+/// bolt_validate_json(json_str, schema_str) → 1 if valid, 0 if not
 ring_func!(bolt_validate_json, |p| {
     ring_check_paracount!(p, 2);
     ring_check_string!(p, 1);
@@ -2988,7 +2988,7 @@ ring_func!(bolt_validate_json, |p| {
     }
 });
 
-/// bolt_validate_json_errors(json_str, schema_str) -> JSON array of errors
+/// bolt_validate_json_errors(json_str, schema_str) → JSON array of errors
 ring_func!(bolt_validate_json_errors, |p| {
     ring_check_paracount!(p, 2);
     ring_check_string!(p, 1);
@@ -3033,7 +3033,7 @@ ring_func!(bolt_validate_json_errors, |p| {
 // Route Constraints (Regex Validation)
 // ========================================
 
-/// bolt_validate_param(server, param_name, regex_pattern) - validate a route param against regex
+/// bolt_validate_param(server, param_name, regex_pattern) → validate a route param against regex
 ring_func!(bolt_validate_param, |p| {
     ring_check_paracount!(p, 3);
     ring_check_cpointer!(p, 1);
@@ -3077,7 +3077,7 @@ ring_func!(bolt_validate_param, |p| {
     }
 });
 
-/// bolt_validate_regex(value, regex_pattern) - validate any string against regex
+/// bolt_validate_regex(value, regex_pattern) → validate any string against regex
 ring_func!(bolt_validate_regex, |p| {
     ring_check_paracount!(p, 2);
     ring_check_string!(p, 1);

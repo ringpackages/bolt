@@ -10,7 +10,7 @@ use crate::HTTP_SERVER_TYPE;
 
 use super::HttpServer;
 
-/// bolt_cache_set(server, key, value, ttl_seconds) - cache a value
+/// bolt_cache_set(server, key, value, ttl_seconds) → cache a value
 ring_func!(bolt_cache_set, |p| {
     ring_check_paracount_range!(p, 3, 4);
     ring_check_cpointer!(p, 1);
@@ -40,7 +40,7 @@ ring_func!(bolt_cache_set, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_cache_get(server, key) -> cached value or empty string
+/// bolt_cache_get(server, key) → cached value or empty string
 ring_func!(bolt_cache_get, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -64,7 +64,7 @@ ring_func!(bolt_cache_get, |p| {
     }
 });
 
-/// bolt_cache_delete(server, key) - remove from cache
+/// bolt_cache_delete(server, key) → remove from cache
 ring_func!(bolt_cache_delete, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -85,7 +85,7 @@ ring_func!(bolt_cache_delete, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_cache_clear(server) - clear all cache
+/// bolt_cache_clear(server) → clear all cache
 ring_func!(bolt_cache_clear, |p| {
     ring_check_paracount!(p, 1);
     ring_check_cpointer!(p, 1);

@@ -9,7 +9,7 @@ use crate::HTTP_SERVER_TYPE;
 use crate::ring_list_to_json;
 use ring_lang_rs::*;
 
-/// bolt_respond(server, status, body)
+/// bolt_respond(server, status, body) → send HTTP response
 ring_func!(bolt_respond, |p| {
     ring_check_paracount_range!(p, 2, 3);
     ring_check_cpointer!(p, 1);
@@ -51,7 +51,7 @@ ring_func!(bolt_respond, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_respond_json(server, status, data) — data can be list or json string
+/// bolt_respond_json(server, status, data) → send JSON response — data can be list or json string
 ring_func!(bolt_respond_json, |p| {
     ring_check_paracount!(p, 3);
     ring_check_cpointer!(p, 1);
@@ -93,7 +93,7 @@ ring_func!(bolt_respond_json, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_respond_file(server, file_path, content_type?)
+/// bolt_respond_file(server, file_path, content_type?) → send file as response
 ring_func!(bolt_respond_file, |p| {
     ring_check_paracount_range!(p, 2, 3);
     ring_check_cpointer!(p, 1);
@@ -171,7 +171,7 @@ ring_func!(bolt_respond_file, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_respond_redirect(server, url, permanent?)
+/// bolt_respond_redirect(server, url, permanent?) → send redirect response
 ring_func!(bolt_respond_redirect, |p| {
     ring_check_paracount_range!(p, 2, 3);
     ring_check_cpointer!(p, 1);
@@ -218,7 +218,7 @@ ring_func!(bolt_respond_redirect, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_respond_status(server, status)
+/// bolt_respond_status(server, status) → send status-only response
 ring_func!(bolt_respond_status, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -262,7 +262,7 @@ ring_func!(bolt_respond_status, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_respond_binary(server, data_base64, content_type?) - send raw binary response
+/// bolt_respond_binary(server, data_base64, content_type?) → send raw binary response
 ring_func!(bolt_respond_binary, |p| {
     ring_check_paracount_range!(p, 2, 3);
     ring_check_cpointer!(p, 1);
@@ -311,7 +311,7 @@ ring_func!(bolt_respond_binary, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_urlencode(string) -> encoded_string
+/// bolt_urlencode(string) → encoded_string
 ring_func!(bolt_urlencode, |p| {
     ring_check_paracount!(p, 1);
     ring_check_string!(p, 1);
@@ -321,7 +321,7 @@ ring_func!(bolt_urlencode, |p| {
     ring_ret_string!(p, &encoded);
 });
 
-/// bolt_urldecode(string) -> decoded_string
+/// bolt_urldecode(string) → decoded_string
 ring_func!(bolt_urldecode, |p| {
     ring_check_paracount!(p, 1);
     ring_check_string!(p, 1);

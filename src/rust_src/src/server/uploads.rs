@@ -10,7 +10,7 @@ use crate::HTTP_SERVER_TYPE;
 
 use super::HttpServer;
 
-/// bolt_req_files_count(server) -> number of uploaded files
+/// bolt_req_files_count(server) → number of uploaded files
 ring_func!(bolt_req_files_count, |p| {
     ring_check_paracount!(p, 1);
     ring_check_cpointer!(p, 1);
@@ -31,7 +31,7 @@ ring_func!(bolt_req_files_count, |p| {
     }
 });
 
-/// bolt_req_file(server, index) -> Ring list [:name, :field, :type, :size]
+/// bolt_req_file(server, index) → Ring list [:name, :field, :type, :size]
 ring_func!(bolt_req_file, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -73,7 +73,7 @@ ring_func!(bolt_req_file, |p| {
     }
 });
 
-/// bolt_req_files(server) -> Ring list of file lists
+/// bolt_req_files(server) → Ring list of file lists
 ring_func!(bolt_req_files, |p| {
     ring_check_paracount!(p, 1);
     ring_check_cpointer!(p, 1);
@@ -110,7 +110,7 @@ ring_func!(bolt_req_files, |p| {
     }
 });
 
-/// bolt_req_file_by_field(server, field_name) -> Ring list for first matching file
+/// bolt_req_file_by_field(server, field_name) → Ring list for first matching file
 ring_func!(bolt_req_file_by_field, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -151,7 +151,7 @@ ring_func!(bolt_req_file_by_field, |p| {
     }
 });
 
-/// bolt_req_file_save(server, index, path) -> 1 on success
+/// bolt_req_file_save(server, index, path) → 1 on success
 ring_func!(bolt_req_file_save, |p| {
     ring_check_paracount!(p, 3);
     ring_check_cpointer!(p, 1);

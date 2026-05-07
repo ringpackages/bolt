@@ -120,7 +120,7 @@ pub(crate) async fn handle_sse(
     }
 }
 
-/// bolt_sse_route(server, path, handler) - add SSE route
+/// bolt_sse_route(server, path, handler) → add SSE route
 ring_func!(bolt_sse_route, |p| {
     ring_check_paracount!(p, 3);
     ring_check_cpointer!(p, 1);
@@ -155,6 +155,7 @@ ring_func!(bolt_sse_route, |p| {
     ring_ret_number!(p, 1.0);
 });
 
+/// bolt_sse_broadcast(server, path, data[, params]) → number of clients notified (-1 on error)
 ring_func!(bolt_sse_broadcast, |p| {
     ring_check_paracount_range!(p, 3, 4);
     ring_check_cpointer!(p, 1);
@@ -216,6 +217,7 @@ ring_func!(bolt_sse_broadcast, |p| {
     }
 });
 
+/// bolt_sse_broadcast_event(server, path, event_name, data[, params]) → number of clients notified (-1 on error)
 ring_func!(bolt_sse_broadcast_event, |p| {
     ring_check_paracount_range!(p, 4, 5);
     ring_check_cpointer!(p, 1);
@@ -279,7 +281,7 @@ ring_func!(bolt_sse_broadcast_event, |p| {
     }
 });
 
-/// bolt_sse_filter_params(server, path) - enable param-based event filtering for an SSE route
+/// bolt_sse_filter_params(server, path) → enable param-based event filtering for an SSE route
 ring_func!(bolt_sse_filter_params, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);

@@ -315,7 +315,7 @@ pub(crate) async fn handle_websocket(
 // WebSocket Ring Functions
 // ========================================
 
-/// bolt_ws_route(server, path, on_connect, on_message, on_disconnect)
+/// bolt_ws_route(server, path, on_connect, on_message, on_disconnect) → register WebSocket route
 ring_func!(bolt_ws_route, |p| {
     ring_check_paracount!(p, 5);
     ring_check_cpointer!(p, 1);
@@ -360,7 +360,7 @@ ring_func!(bolt_ws_route, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_ws_client_id(server) -> current WS event's client ID
+/// bolt_ws_client_id(server) → current WS event's client ID
 ring_func!(bolt_ws_client_id, |p| {
     ring_check_paracount!(p, 1);
     ring_check_cpointer!(p, 1);
@@ -382,7 +382,7 @@ ring_func!(bolt_ws_client_id, |p| {
     }
 });
 
-/// bolt_ws_event_type(server) -> "connect", "message", or "disconnect"
+/// bolt_ws_event_type(server) → "connect", "message", or "disconnect"
 ring_func!(bolt_ws_event_type, |p| {
     ring_check_paracount!(p, 1);
     ring_check_cpointer!(p, 1);
@@ -404,7 +404,7 @@ ring_func!(bolt_ws_event_type, |p| {
     }
 });
 
-/// bolt_ws_event_message(server) -> current WS message text
+/// bolt_ws_event_message(server) → current WS message text
 ring_func!(bolt_ws_event_message, |p| {
     ring_check_paracount!(p, 1);
     ring_check_cpointer!(p, 1);
@@ -426,7 +426,7 @@ ring_func!(bolt_ws_event_message, |p| {
     }
 });
 
-/// bolt_ws_event_is_binary(server) -> 1 if binary message, 0 otherwise
+/// bolt_ws_event_is_binary(server) → 1 if binary message, 0 otherwise
 ring_func!(bolt_ws_event_is_binary, |p| {
     ring_check_paracount!(p, 1);
     ring_check_cpointer!(p, 1);
@@ -448,7 +448,7 @@ ring_func!(bolt_ws_event_is_binary, |p| {
     }
 });
 
-/// bolt_ws_event_binary(server) -> binary data as base64 string
+/// bolt_ws_event_binary(server) → binary data as base64 string
 ring_func!(bolt_ws_event_binary, |p| {
     ring_check_paracount!(p, 1);
     ring_check_cpointer!(p, 1);
@@ -472,7 +472,7 @@ ring_func!(bolt_ws_event_binary, |p| {
     }
 });
 
-/// bolt_ws_event_path(server) -> WS route path
+/// bolt_ws_event_path(server) → WS route path
 ring_func!(bolt_ws_event_path, |p| {
     ring_check_paracount!(p, 1);
     ring_check_cpointer!(p, 1);
@@ -494,7 +494,7 @@ ring_func!(bolt_ws_event_path, |p| {
     }
 });
 
-/// bolt_ws_param(server, name) -> get WS route path parameter
+/// bolt_ws_param(server, name) → get WS route path parameter
 ring_func!(bolt_ws_param, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -520,7 +520,7 @@ ring_func!(bolt_ws_param, |p| {
     }
 });
 
-/// bolt_ws_send_to(server, client_id, message) -> send text to specific client
+/// bolt_ws_send_to(server, client_id, message) → send text to specific client
 ring_func!(bolt_ws_send_to, |p| {
     ring_check_paracount!(p, 3);
     ring_check_cpointer!(p, 1);
@@ -549,7 +549,7 @@ ring_func!(bolt_ws_send_to, |p| {
     }
 });
 
-/// bolt_ws_send_binary_to(server, client_id, base64_data) -> send binary to specific client
+/// bolt_ws_send_binary_to(server, client_id, base64_data) → send binary to specific client
 ring_func!(bolt_ws_send_binary_to, |p| {
     ring_check_paracount!(p, 3);
     ring_check_cpointer!(p, 1);
@@ -586,7 +586,7 @@ ring_func!(bolt_ws_send_binary_to, |p| {
     }
 });
 
-/// bolt_ws_close_client(server, client_id) -> close a specific client connection
+/// bolt_ws_close_client(server, client_id) → close a specific client connection
 ring_func!(bolt_ws_close_client, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -637,7 +637,7 @@ ring_func!(bolt_ws_close_client, |p| {
     }
 });
 
-/// bolt_ws_client_list(server) -> JSON array of connected client IDs
+/// bolt_ws_client_list(server) → JSON array of connected client IDs
 ring_func!(bolt_ws_client_list, |p| {
     ring_check_paracount!(p, 1);
     ring_check_cpointer!(p, 1);
@@ -660,7 +660,7 @@ ring_func!(bolt_ws_client_list, |p| {
 // WebSocket Rooms
 // ========================================
 
-/// bolt_ws_room_join(server, room, client_id) -> join a room
+/// bolt_ws_room_join(server, room, client_id) → join a room
 ring_func!(bolt_ws_room_join, |p| {
     ring_check_paracount!(p, 3);
     ring_check_cpointer!(p, 1);
@@ -693,7 +693,7 @@ ring_func!(bolt_ws_room_join, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_ws_room_leave(server, room, client_id) -> leave a room
+/// bolt_ws_room_leave(server, room, client_id) → leave a room
 ring_func!(bolt_ws_room_leave, |p| {
     ring_check_paracount!(p, 3);
     ring_check_cpointer!(p, 1);
@@ -730,7 +730,7 @@ ring_func!(bolt_ws_room_leave, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_ws_room_broadcast(server, room, message) -> send text to all clients in a room
+/// bolt_ws_room_broadcast(server, room, message) → send text to all clients in a room
 ring_func!(bolt_ws_room_broadcast, |p| {
     ring_check_paracount!(p, 3);
     ring_check_cpointer!(p, 1);
@@ -765,7 +765,7 @@ ring_func!(bolt_ws_room_broadcast, |p| {
     }
 });
 
-/// bolt_ws_room_broadcast_binary(server, room, base64_data) -> send binary to all clients in a room
+/// bolt_ws_room_broadcast_binary(server, room, base64_data) → send binary to all clients in a room
 ring_func!(bolt_ws_room_broadcast_binary, |p| {
     ring_check_paracount!(p, 3);
     ring_check_cpointer!(p, 1);
@@ -808,7 +808,7 @@ ring_func!(bolt_ws_room_broadcast_binary, |p| {
     }
 });
 
-/// bolt_ws_room_members(server, room) -> JSON array of client IDs in a room
+/// bolt_ws_room_members(server, room) → JSON array of client IDs in a room
 ring_func!(bolt_ws_room_members, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -834,7 +834,7 @@ ring_func!(bolt_ws_room_members, |p| {
     }
 });
 
-/// bolt_ws_room_count(server, room) -> number of clients in a room
+/// bolt_ws_room_count(server, room) → number of clients in a room
 ring_func!(bolt_ws_room_count, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -855,7 +855,7 @@ ring_func!(bolt_ws_room_count, |p| {
     }
 });
 
-/// bolt_ws_broadcast(server, message) - send to all WebSocket connections
+/// bolt_ws_broadcast(server, message) → send to all WebSocket connections
 ring_func!(bolt_ws_broadcast, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -877,7 +877,7 @@ ring_func!(bolt_ws_broadcast, |p| {
     }
 });
 
-/// bolt_ws_connection_count(server) -> number of active WebSocket connections
+/// bolt_ws_connection_count(server) → number of active WebSocket connections
 ring_func!(bolt_ws_connection_count, |p| {
     ring_check_paracount!(p, 1);
     ring_check_cpointer!(p, 1);
@@ -894,6 +894,7 @@ ring_func!(bolt_ws_connection_count, |p| {
     }
 });
 
+/// bolt_ws_message_rate_limit(server, rate) → set per-client WS message rate limit (msgs/sec, 0=disable)
 ring_func!(bolt_ws_message_rate_limit, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -915,6 +916,7 @@ ring_func!(bolt_ws_message_rate_limit, |p| {
     ring_ret_number!(p, 1.0);
 });
 
+/// bolt_ws_event_abort(server) → abort current WS event from before middleware
 ring_func!(bolt_ws_event_abort, |p| {
     ring_check_paracount!(p, 1);
     ring_check_cpointer!(p, 1);
@@ -933,7 +935,7 @@ ring_func!(bolt_ws_event_abort, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_ws_dropped_count(server) -> number of dropped WS messages
+/// bolt_ws_dropped_count(server) → number of dropped WS messages
 ring_func!(bolt_ws_dropped_count, |p| {
     ring_check_paracount!(p, 1);
     ring_check_cpointer!(p, 1);

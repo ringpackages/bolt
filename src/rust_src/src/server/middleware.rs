@@ -10,7 +10,7 @@ use crate::HTTP_SERVER_TYPE;
 
 use super::HttpServer;
 
-/// bolt_set_error_handler(server, handler_name) - set global error handler
+/// bolt_set_error_handler(server, handler_name) → set global error handler
 ring_func!(bolt_set_error_handler, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -54,7 +54,7 @@ ring_func!(bolt_set_error_handler, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_route_before(server, handler_name, middleware_name) - add per-route before middleware
+/// bolt_route_before(server, handler_name, middleware_name) → add per-route before middleware
 ring_func!(bolt_route_before, |p| {
     ring_check_paracount!(p, 3);
     ring_check_cpointer!(p, 1);
@@ -104,7 +104,7 @@ ring_func!(bolt_route_before, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_route_after(server, handler_name, middleware_name) - add per-route after middleware
+/// bolt_route_after(server, handler_name, middleware_name) → add per-route after middleware
 ring_func!(bolt_route_after, |p| {
     ring_check_paracount!(p, 3);
     ring_check_cpointer!(p, 1);
@@ -154,7 +154,7 @@ ring_func!(bolt_route_after, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_before(server, handler) - add before middleware (runs before each request)
+/// bolt_before(server, handler) → add before middleware (runs before each request)
 ring_func!(bolt_before, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
@@ -175,7 +175,7 @@ ring_func!(bolt_before, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_after(server, handler) - add after middleware (runs after each request)
+/// bolt_after(server, handler) → add after middleware (runs after each request)
 ring_func!(bolt_after, |p| {
     ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
