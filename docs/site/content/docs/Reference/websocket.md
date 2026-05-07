@@ -62,7 +62,10 @@ $bolt.wsRoomCount(cRoom)                         # Number of clients in room
 ```ring
 $bolt.wsBroadcast(cMessage)     # Send to ALL connected clients
 $bolt.wsConnectionCount()       # Total active connections
+$bolt.wsDroppedCount()          # Number of messages dropped due to VM channel overflow
 ```
+
+`wsDroppedCount()` returns a cumulative count of WebSocket messages that were dropped because the VM event channel was full. This can happen under high load when message events are produced faster than the VM can process them. Monitor this counter to detect backpressure issues.
 
 ### Event Abort (use in before middleware)
 

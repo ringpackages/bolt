@@ -89,17 +89,28 @@ new Bolt() {
 ```ring
 new Bolt() {
     port = 443
-    
+
     # Enable TLS
     enableTls("./certs/server.crt", "./certs/server.key")
-    
+
     # Force HTTPS redirect
     @before(func {
         if $bolt.header("X-Forwarded-Proto") = "http"
             $bolt.redirectPermanent("https://" + $bolt.header("Host") + $bolt.path())
         ok
     })
-    
+
+    # Routes...
+}
+```
+
+### Force Secure Cookies Behind a Proxy
+
+When running behind a TLS-terminating proxy (e.g., nginx, Cloudflare), the server doesn't see TLS directly. Use `forceSecureCookies()` to ensure session cookies get the `Secure` flag and use the `__Host-` prefix:
+
+```ring
+new Bolt() {
+    forceSecureCookies()
     # Routes...
 }
 ```

@@ -79,6 +79,13 @@ setBodyLimit(50 * 1024 * 1024)  # 50MB
 
 **Default:** 52,428,800 bytes (50MB)
 
+### forceSecureCookies()
+Force the `Secure` flag on session cookies even without TLS. Useful behind a TLS-terminating proxy.
+
+```ring
+forceSecureCookies()
+```
+
 ### setSessionCapacity(nMaxEntries)
 Set maximum number of session entries.
 
@@ -903,6 +910,7 @@ $bolt.wsRoomCount(cRoom)                         # Number of clients in room
 ```ring
 $bolt.wsBroadcast(cMessage)     # Send to ALL connected clients
 $bolt.wsConnectionCount()       # Total active connections
+$bolt.wsDroppedCount()          # Messages dropped due to VM channel overflow
 ```
 
 ---
@@ -914,6 +922,14 @@ Register SSE endpoint for clients to subscribe.
 
 ```ring
 @sse("/events")
+```
+
+### $bolt.sseFilterParams(cPath)
+Enable param-based event filtering for an SSE route. When enabled, subscribers only receive events whose params match their route params. Off by default.
+
+```ring
+@sse("/channel/:name")
+sseFilterParams("/channel/:name")
 ```
 
 ### $bolt.sseBroadcast(cPath, cData)
@@ -1005,7 +1021,7 @@ enableCsrf("my-csrf-secret")
 ```
 
 ### $bolt.csrfToken()
-Generate a session-bound CSRF token (format: `session_id.timestamp.hmac`). Also sets a `BOLTSESSION` cookie if the client doesn't already have one.
+Generate a session-bound CSRF token (format: `session_id.timestamp.hmac`). Also sets a session cookie if the client doesn't already have one. The cookie is named `BOLTSESSION` over plain HTTP, or `__Host-BOLTSESSION` with the `Secure` flag over TLS (or when `forceSecureCookies()` is called).
 
 ```ring
 token = $bolt.csrfToken()

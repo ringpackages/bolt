@@ -159,3 +159,10 @@ setWsMessageRateLimit(50)  # Max 50 messages/sec per client
 ```
 
 **Default:** 100
+
+### forceSecureCookies()
+Force the `Secure` flag on session cookies even when TLS is not enabled. Useful when running behind a TLS-terminating proxy.
+
+```ring
+forceSecureCookies()
+```

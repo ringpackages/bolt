@@ -11,6 +11,16 @@ Register SSE endpoint for clients to subscribe.
 @sse("/events")
 ```
 
+### $bolt.sseFilterParams(cPath)
+Enable param-based event filtering for an SSE route. When enabled, subscribers will only receive events whose params are a superset of their own route params. Must be called after `@sse`.
+
+```ring
+@sse("/channel/:name")
+sseFilterParams("/channel/:name")
+```
+
+With filtering enabled, a subscriber on `/channel/sports` will only receive broadcasts where the params include `name: "sports"`. Without filtering, all subscribers on the channel receive all events.
+
 ### $bolt.sseBroadcast(cPath, cData)
 Send data event to all subscribers.
 

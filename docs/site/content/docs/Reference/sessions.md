@@ -1,8 +1,10 @@
 ---
 title: "Sessions"
 weight: 9
-summary: "Session storage, flash messages, and session management"
+summary: "Session storage, flash messages, session management, and secure cookie behavior"
 ---
+
+Session cookies are signed with HMAC-SHA256 to prevent session fixation attacks. Over TLS (or when `setForceSecureCookies(1)` is set), the cookie name changes to `__Host-BOLTSESSION` with the `Secure` flag. Calling `clearSession()` also expires the cookie on the client side.
 
 ### $bolt.setSession(cKey, cValue)
 Set session value.

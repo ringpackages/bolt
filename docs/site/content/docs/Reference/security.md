@@ -12,7 +12,7 @@ enableCsrf("my-csrf-secret")
 ```
 
 ### $bolt.csrfToken()
-Generate a session-bound CSRF token (format: `session_id.timestamp.hmac`). Also sets a `BOLTSESSION` cookie if the client doesn't already have one.
+Generate a session-bound CSRF token (format: `session_id.timestamp.hmac`). Also sets a session cookie if the client doesn't already have one. The cookie is named `BOLTSESSION` over plain HTTP, or `__Host-BOLTSESSION` with the `Secure` flag over TLS (or when `forceSecureCookies()` is called).
 
 ```ring
 token = $bolt.csrfToken()
