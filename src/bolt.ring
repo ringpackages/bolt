@@ -560,10 +560,16 @@ class Bolt {
         return bolt_req_method(pHandle)
     }
 
-    /// @brief Gets the path of the current request.
+    /// @brief Gets the path of the current request (route pattern).
     /// @return Path string.
     func path() {
         return bolt_req_path(pHandle)
+    }
+
+    /// @brief Gets the raw URI of the current request (actual request path with query string).
+    /// @return URI string.
+    func uri() {
+        return bolt_req_uri(pHandle)
     }
 
     /// @brief Gets a route parameter value.
