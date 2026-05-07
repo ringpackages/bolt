@@ -232,12 +232,10 @@ ring_func!(bolt_session_regenerate, |p| {
 
         if !old_session_id.is_empty() {
             let new_session_id = uuid::Uuid::new_v4().to_string();
-            if let Some(session_data) = server.sessions.get(&old_session_id) {
-                server
-                    .sessions
-                    .insert(new_session_id.clone(), session_data.clone());
+            // Atomic: remove old session and insert new one
+            if let Some(session_data) = server.sessions.remove(&old_session_id) {
+                server.sessions.insert(new_session_id.clone(), session_data);
             }
-            server.sessions.invalidate(&old_session_id);
 
             // Update the request context's session_id
             if let Some(ref mut ctx) = *server.current_request.lock() {

@@ -55,6 +55,7 @@ ring_libinit! {
     "bolt_req_query" => bolt_req_query,
     "bolt_req_header" => bolt_req_header,
     "bolt_req_body" => bolt_req_body,
+    "bolt_req_body_base64" => bolt_req_body_base64,
     "bolt_req_form_field" => bolt_req_form_field,
     "bolt_req_client_ip" => bolt_req_client_ip,
     "bolt_req_handler" => bolt_req_handler,

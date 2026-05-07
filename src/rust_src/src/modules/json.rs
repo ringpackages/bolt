@@ -149,7 +149,7 @@ fn get_list_item_as_json(list: RingList, index: u32, depth: usize) -> Result<Val
         Ok(Value::String(s))
     } else if ring_list_isnumber(list, index) {
         let n = ring_list_getdouble(list, index);
-        if n.fract() == 0.0 && n >= i64::MIN as f64 && n <= i64::MAX as f64 {
+        if n.fract() == 0.0 && n >= i64::MIN as f64 && n < i64::MAX as f64 {
             Ok(Value::Number(serde_json::Number::from(n as i64)))
         } else {
             Ok(serde_json::Number::from_f64(n)

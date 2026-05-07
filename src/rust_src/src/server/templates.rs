@@ -78,11 +78,11 @@ ring_func!(bolt_render_file, |p| {
         if let Some((cached_content, cached_mtime)) = cache.get(filepath) {
             if let Ok(meta) = std::fs::metadata(filepath) {
                 if let Ok(mtime) = meta.modified() {
-                    let mtime_secs = mtime
+                    let mtime_ms = mtime
                         .duration_since(std::time::UNIX_EPOCH)
                         .unwrap_or_default()
-                        .as_secs();
-                    if *cached_mtime == mtime_secs {
+                        .as_millis();
+                    if *cached_mtime == mtime_ms {
                         cached_content.clone()
                     } else {
                         drop(cache);
@@ -98,7 +98,7 @@ ring_func!(bolt_render_file, |p| {
                                         cache.remove(&key);
                                     }
                                 }
-                                cache.insert(filepath.to_string(), (content.clone(), mtime_secs));
+                                cache.insert(filepath.to_string(), (content.clone(), mtime_ms));
                                 content
                             }
                             Err(_) => {
@@ -117,12 +117,12 @@ ring_func!(bolt_render_file, |p| {
             drop(cache);
             match std::fs::read_to_string(filepath) {
                 Ok(content) => {
-                    let mtime_secs = std::fs::metadata(filepath)
+                    let mtime_ms = std::fs::metadata(filepath)
                         .and_then(|m| m.modified())
                         .unwrap_or(std::time::UNIX_EPOCH)
                         .duration_since(std::time::UNIX_EPOCH)
                         .unwrap_or_default()
-                        .as_secs();
+                        .as_millis();
                     let mut cache = server
                         .template_cache
                         .write()
@@ -134,7 +134,7 @@ ring_func!(bolt_render_file, |p| {
                             cache.remove(&key);
                         }
                     }
-                    cache.insert(filepath.to_string(), (content.clone(), mtime_secs));
+                    cache.insert(filepath.to_string(), (content.clone(), mtime_ms));
                     content
                 }
                 Err(_) => {

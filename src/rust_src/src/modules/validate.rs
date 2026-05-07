@@ -14,9 +14,11 @@ ring_func!(bolt_validate_email, |p| {
     ring_check_string!(p, 1);
     let s = ring_get_string!(p, 1);
     static RE: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$").unwrap()
+        Regex::new(r"^[a-zA-Z0-9_%+\-]+@[a-zA-Z0-9](?:[a-zA-Z0-9\-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9\-]*[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$")
+            .expect("valid regex")
     });
-    ring_ret_number!(p, if RE.is_match(s) { 1.0 } else { 0.0 });
+    let valid = RE.is_match(s) && !s.contains("..") && s.len() <= 254;
+    ring_ret_number!(p, if valid { 1.0 } else { 0.0 });
 });
 
 /// bolt_validate_url(str) → 0/1
@@ -25,8 +27,14 @@ ring_func!(bolt_validate_url, |p| {
     ring_check_string!(p, 1);
     let s = ring_get_string!(p, 1);
     static RE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^https?://[^\s/$.?#].[^\s]*$").unwrap());
-    ring_ret_number!(p, if RE.is_match(s) { 1.0 } else { 0.0 });
+        LazyLock::new(|| Regex::new(r"^https?://[^\s/$.?#].[^\s]*$").expect("valid regex"));
+    let valid = RE.is_match(s) && {
+        // Reject userinfo in URL (user@host or user:pass@host)
+        let after_scheme = s.split("://").nth(1).unwrap_or("");
+        let authority = after_scheme.split('/').next().unwrap_or("");
+        !authority.contains('@')
+    };
+    ring_ret_number!(p, if valid { 1.0 } else { 0.0 });
 });
 
 /// bolt_validate_ip(str) → 0/1
@@ -63,7 +71,7 @@ ring_func!(bolt_validate_uuid, |p| {
     let s = ring_get_string!(p, 1);
     static RE: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
-            .unwrap()
+            .expect("valid regex")
     });
     ring_ret_number!(p, if RE.is_match(s) { 1.0 } else { 0.0 });
 });

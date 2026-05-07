@@ -283,6 +283,10 @@ pub struct SseRouteDefinition {
 
 pub struct VmPtr(pub *mut c_void);
 
+// SAFETY: VmPtr is only accessed through Arc<Mutex<VmPtr>> (see HttpServer.vm field).
+// The Mutex ensures exclusive access when the pointer is dereferenced, and Arc ensures
+// the pointer outlives all references. The raw pointer is never dereferenced outside
+// the dedicated VM thread without going through the Mutex.
 unsafe impl Send for VmPtr {}
 unsafe impl Sync for VmPtr {}
 
@@ -325,7 +329,7 @@ pub struct HttpServer {
     pub openapi_version: String,
     pub openapi_description: String,
     pub server_shutdown_tx: tokio::sync::broadcast::Sender<()>,
-    pub template_cache: Arc<std::sync::RwLock<HashMap<String, (String, u64)>>>,
+    pub template_cache: Arc<std::sync::RwLock<HashMap<String, (String, u128)>>>,
     pub regex_cache: Arc<Mutex<HashMap<String, regex::Regex>>>,
     pub csrf_secret: Option<String>,
     pub session_secret: String,
@@ -345,6 +349,8 @@ pub struct SseEvent {
     pub event: Option<String>,
     pub data: String,
     pub params: HashMap<String, String>,
+    pub id: Option<String>,
+    pub retry: Option<u64>,
 }
 
 impl HttpServer {
@@ -502,6 +508,8 @@ pub(crate) enum VmWork {
     },
 }
 
+// SAFETY: All fields in VmWork (RequestContext, String, oneshot::Sender) are already Send.
+// This impl is technically redundant but ensures the compiler accepts cross-thread dispatch.
 unsafe impl Send for VmWork {}
 
 // Actix Web application state
@@ -545,12 +553,18 @@ pub fn check_route_constraints(
         if route.handler_name == handler_name {
             for (param_name, pattern) in &route.constraints {
                 if let Some(value) = params.get(param_name) {
-                    let mut cache = regex_cache.lock();
-                    #[allow(clippy::regex_creation_in_loops)]
-                    let re = cache.entry(pattern.clone()).or_insert_with(|| {
-                        regex::Regex::new(pattern)
-                            .unwrap_or_else(|_| regex::Regex::new("^$").unwrap())
-                    });
+                    // Narrow lock scope: clone regex, drop lock before matching
+                    let re = {
+                        let mut cache = regex_cache.lock();
+                        #[allow(clippy::regex_creation_in_loops)]
+                        cache
+                            .entry(pattern.clone())
+                            .or_insert_with(|| {
+                                regex::Regex::new(pattern)
+                                    .unwrap_or_else(|_| regex::Regex::new("^$").unwrap())
+                            })
+                            .clone()
+                    };
                     if !re.is_match(value) {
                         return Some(param_name.clone());
                     }
@@ -1413,7 +1427,8 @@ async fn run_server(
             .wrap(Condition::new(compression, Compress::default()))
             .wrap(Condition::new(cors_config.enabled, cors))
     })
-    .keep_alive(Duration::from_millis(request_timeout_ms))
+    .keep_alive(Duration::from_secs(75))
+    .client_request_timeout(Duration::from_millis(request_timeout_ms))
     .h1_allow_half_closed(false);
 
     let addr = format!("{}:{}", host, port);
@@ -1865,8 +1880,6 @@ async fn handle_request(
         None
     };
 
-    let req_id_header = request_id_str.clone();
-
     let http_response = match response {
         Some(res) => {
             let status = StatusCode::from_u16(res.status).unwrap_or(StatusCode::OK);
@@ -1882,7 +1895,7 @@ async fn handle_request(
                     == Some(etag)
                 {
                     let mut builder = HttpResponse::NotModified();
-                    builder.insert_header(("X-Request-Id", req_id_header.clone()));
+                    builder.insert_header(("X-Request-Id", request_id_str.clone()));
                     builder.insert_header(("ETag", etag.clone()));
                     for cookie in &cookies {
                         builder.append_header((header::SET_COOKIE, cookie.clone()));
@@ -1894,7 +1907,7 @@ async fn handle_request(
             match body {
                 ResponseBody::Bytes(b) => {
                     let mut builder = HttpResponse::build(status);
-                    builder.insert_header(("X-Request-Id", req_id_header.clone()));
+                    builder.insert_header(("X-Request-Id", request_id_str.clone()));
 
                     let blocked = [
                         "transfer-encoding",
@@ -1927,7 +1940,7 @@ async fn handle_request(
                         let headers_mut = resp.headers_mut();
 
                         if let Ok(val) =
-                            actix_web::http::header::HeaderValue::from_str(&req_id_header)
+                            actix_web::http::header::HeaderValue::from_str(&request_id_str)
                         {
                             headers_mut.insert(
                                 actix_web::http::header::HeaderName::from_static("x-request-id"),
@@ -1964,13 +1977,13 @@ async fn handle_request(
                         resp
                     }
                     Err(_) => HttpResponse::NotFound()
-                        .insert_header(("X-Request-Id", req_id_header))
+                        .insert_header(("X-Request-Id", request_id_str))
                         .body("File not found"),
                 },
             }
         }
         None => HttpResponse::ServiceUnavailable()
-            .insert_header(("X-Request-Id", req_id_header))
+            .insert_header(("X-Request-Id", request_id_str))
             .insert_header(("Retry-After", "5"))
             .body("Server overloaded"),
     };
@@ -2165,7 +2178,8 @@ ring_func!(bolt_req_header, |p| {
     }
 });
 
-/// bolt_req_body(server) → string
+/// bolt_req_body(server) → string (lossy UTF-8: binary bytes replaced with U+FFFD)
+/// For binary-safe access, use bolt_req_body_base64 instead.
 ring_func!(bolt_req_body, |p| {
     ring_check_paracount!(p, 1);
     ring_check_cpointer!(p, 1);
@@ -2181,6 +2195,29 @@ ring_func!(bolt_req_body, |p| {
         if let Some(ref ctx) = *guard {
             let body_str = String::from_utf8_lossy(&ctx.body);
             ring_ret_string!(p, &body_str);
+        } else {
+            ring_ret_string!(p, "");
+        }
+    }
+});
+
+/// bolt_req_body_base64(server) → string (base64 encoded, binary-safe)
+ring_func!(bolt_req_body_base64, |p| {
+    ring_check_paracount!(p, 1);
+    ring_check_cpointer!(p, 1);
+
+    let ptr = ring_api_getcpointer(p, 1, HTTP_SERVER_TYPE);
+    if ptr.is_null() {
+        return;
+    }
+
+    unsafe {
+        let server = &*(ptr as *const HttpServer);
+        let guard = server.current_request.lock();
+        if let Some(ref ctx) = *guard {
+            use base64::Engine;
+            let encoded = base64::engine::general_purpose::STANDARD.encode(&ctx.body);
+            ring_ret_string!(p, &encoded);
         } else {
             ring_ret_string!(p, "");
         }
@@ -2662,7 +2699,7 @@ ring_func!(bolt_etag, |p| {
     let mut hasher = Sha256::new();
     hasher.update(content.as_bytes());
     let hash = hasher.finalize();
-    let etag = format!("\"{}\"", hex::encode(&hash[..8]));
+    let etag = format!("\"{}\"", hex::encode(&hash));
 
     ring_ret_string!(p, &etag);
 });
@@ -3643,6 +3680,8 @@ mod tests {
             event: Some("update".into()),
             data: r#"{"key":"value"}"#.into(),
             params: HashMap::new(),
+            id: None,
+            retry: None,
         };
         assert_eq!(event.event, Some("update".into()));
         assert_eq!(event.data, r#"{"key":"value"}"#);
@@ -3651,6 +3690,8 @@ mod tests {
             event: None,
             data: "data".into(),
             params: HashMap::new(),
+            id: None,
+            retry: None,
         };
         assert!(event.event.is_none());
     }
@@ -4752,6 +4793,8 @@ mod tests {
             event: None,
             data: "plain data".into(),
             params: HashMap::new(),
+            id: None,
+            retry: None,
         };
         assert!(event.event.is_none());
         assert_eq!(event.data, "plain data");

@@ -645,6 +645,8 @@ ring_func!(bolt_ws_close_client, |p| {
 });
 
 /// bolt_ws_client_list(server) → JSON array of connected client IDs
+/// WARNING: Returns ALL connected client IDs. Ensure your handler has proper
+/// authorization checks before calling this function.
 ring_func!(bolt_ws_client_list, |p| {
     ring_check_paracount!(p, 1);
     ring_check_cpointer!(p, 1);

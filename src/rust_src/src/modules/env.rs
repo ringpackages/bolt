@@ -6,15 +6,13 @@
 
 use ring_lang_rs::*;
 
-/// bolt_env_load() → number (1 on success) — load .env from current directory
+/// bolt_env_load() → number (1 on success, 0 if .env not found) — load .env from current directory
 ring_func!(bolt_env_load, |p| {
     ring_check_paracount!(p, 0);
 
     match dotenvy::dotenv() {
         Ok(_) => ring_ret_number!(p, 1.0),
-        Err(_) => {
-            ring_error!(p, "env: failed to load .env file");
-        }
+        Err(_) => ring_ret_number!(p, 0.0),
     }
 });
 

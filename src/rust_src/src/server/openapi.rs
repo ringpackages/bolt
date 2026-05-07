@@ -46,9 +46,21 @@ ring_func!(bolt_openapi_spec, |p| {
 
     let spec = ring_get_string!(p, 2);
 
+    // Sanitize: strip servers and externalDocs to prevent spec injection
+    let sanitized = match serde_json::from_str::<serde_json::Value>(spec) {
+        Ok(mut val) => {
+            if let Some(obj) = val.as_object_mut() {
+                obj.remove("servers");
+                obj.remove("externalDocs");
+            }
+            serde_json::to_string(&val).unwrap_or_else(|_| spec.to_string())
+        }
+        Err(_) => spec.to_string(),
+    };
+
     unsafe {
         let server = &mut *(ptr as *mut HttpServer);
-        server.openapi_spec = Some(spec.to_string());
+        server.openapi_spec = Some(sanitized);
     }
 
     ring_ret_number!(p, 1.0);
@@ -105,7 +117,7 @@ ring_func!(bolt_openapi_info, |p| {
         let server = &mut *(ptr as *mut HttpServer);
         server.openapi_title = title;
         server.openapi_version = version;
-        server.openapi_description = description;
+        server.openapi_description = html_escape::encode_text(&description).to_string();
     }
 
     ring_ret_number!(p, 1.0);
@@ -142,7 +154,11 @@ ring_func!(bolt_route_describe, |p| {
 
     unsafe {
         let server = &mut *(ptr as *mut HttpServer);
-        server.set_route_description(&method, &path, &description);
+        server.set_route_description(
+            &method,
+            &path,
+            &html_escape::encode_text(&description).to_string(),
+        );
     }
 
     ring_ret_number!(p, 1.0);

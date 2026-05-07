@@ -26,14 +26,17 @@ ring_func!(bolt_aes_encrypt, |p| {
     if kb.len() == 32 {
         key_bytes.copy_from_slice(kb);
     } else {
-        use sha2::{Digest, Sha256};
-        let hash = Sha256::digest(kb);
-        key_bytes.copy_from_slice(&hash);
+        use pbkdf2::pbkdf2_hmac;
+        use sha2::Sha256;
+        let salt = b"bolt-aes-gcm-v1";
+        pbkdf2_hmac::<Sha256>(kb, salt, 600_000, &mut key_bytes);
     }
 
     let key = <&Key<Aes256Gcm>>::from(&key_bytes);
     let cipher = Aes256Gcm::new(key);
 
+    // NOTE: Random 96-bit nonce. Birthday bound warns of collision at ~2^32 encryptions
+    // under the same key. Rotate keys before reaching this limit.
     let mut nonce_bytes = [0u8; 12];
     OsRng.fill_bytes(&mut nonce_bytes);
     let nonce = <&Nonce<U12>>::from(&nonce_bytes);
@@ -52,7 +55,7 @@ ring_func!(bolt_aes_encrypt, |p| {
     }
 });
 
-/// bolt_aes_decrypt(ciphertext_b64, key) → string (plaintext)
+/// bolt_aes_decrypt(ciphertext_b64, key) → string (base64 encoded plaintext)
 ring_func!(bolt_aes_decrypt, |p| {
     ring_check_paracount!(p, 2);
     ring_check_string!(p, 1);
@@ -65,9 +68,10 @@ ring_func!(bolt_aes_decrypt, |p| {
     if kb.len() == 32 {
         key_bytes.copy_from_slice(kb);
     } else {
-        use sha2::{Digest, Sha256};
-        let hash = Sha256::digest(kb);
-        key_bytes.copy_from_slice(&hash);
+        use pbkdf2::pbkdf2_hmac;
+        use sha2::Sha256;
+        let salt = b"bolt-aes-gcm-v1";
+        pbkdf2_hmac::<Sha256>(kb, salt, 600_000, &mut key_bytes);
     }
 
     use base64::Engine;
@@ -91,8 +95,9 @@ ring_func!(bolt_aes_decrypt, |p| {
 
     match cipher.decrypt(nonce, ciphertext.as_ref()) {
         Ok(plaintext) => {
-            let s = String::from_utf8_lossy(&plaintext).to_string();
-            ring_ret_string!(p, &s);
+            use base64::Engine;
+            let encoded = base64::engine::general_purpose::STANDARD.encode(&plaintext);
+            ring_ret_string!(p, &encoded);
         }
         Err(_) => {
             ring_error!(p, "AES decryption failed (wrong key or corrupted data)");

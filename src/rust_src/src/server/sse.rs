@@ -82,6 +82,16 @@ pub(crate) async fn handle_sse(
                                     event_str.push_str(&format!("event: {}\n", sanitized));
                                 }
                             }
+                            if let Some(ref id) = evt.id {
+                                let sanitized_id: String =
+                                    id.chars().filter(|c| *c != '\r' && *c != '\n').collect();
+                                if !sanitized_id.is_empty() {
+                                    event_str.push_str(&format!("id: {}\n", sanitized_id));
+                                }
+                            }
+                            if let Some(retry) = evt.retry {
+                                event_str.push_str(&format!("retry: {}\n", retry));
+                            }
                             for line in evt.data.lines() {
                                 event_str.push_str(&format!("data: {}\n", line));
                             }
@@ -204,6 +214,8 @@ ring_func!(bolt_sse_broadcast, |p| {
                 event: None,
                 data: data.to_string(),
                 params,
+                id: None,
+                retry: None,
             };
             match tx.send(evt) {
                 Ok(count) => ring_ret_number!(p, count as f64),
@@ -268,6 +280,8 @@ ring_func!(bolt_sse_broadcast_event, |p| {
                 event: Some(event_name.to_string()),
                 data: data.to_string(),
                 params,
+                id: None,
+                retry: None,
             };
             match tx.send(evt) {
                 Ok(count) => ring_ret_number!(p, count as f64),

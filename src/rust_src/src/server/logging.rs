@@ -24,6 +24,22 @@ fn log_level_num(level: &str) -> u8 {
     }
 }
 
+/// Redact common PII patterns from a log message
+fn redact_pii(msg: &str) -> String {
+    // Redact email addresses
+    static EMAIL_RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}").expect("valid regex")
+    });
+    // Redact common token/key patterns (Bearer tokens, API keys, etc.)
+    static TOKEN_RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(r"(?i)(bearer|api[_-]?key|token|secret|password|authorization)[:=]\s*\S+")
+            .expect("valid regex")
+    });
+    let result = EMAIL_RE.replace_all(msg, "[REDACTED_EMAIL]");
+    let result = TOKEN_RE.replace_all(&result, "${1}: [REDACTED]");
+    result.into_owned()
+}
+
 /// bolt_logging(enabled) → enable/disable request logging
 ring_func!(bolt_logging, |p| {
     ring_check_paracount_range!(p, 0, 1);
@@ -64,6 +80,7 @@ ring_func!(bolt_log, |p| {
     let level_num = log_level_num(&level);
     let min_level = LOG_LEVEL.load(std::sync::atomic::Ordering::SeqCst);
 
+    let message = redact_pii(&message);
     let message: String = message
         .chars()
         .filter(|c| *c != '\r' && *c != '\n' && *c != '\x1b' && *c != '\0')
@@ -84,7 +101,8 @@ ring_func!(bolt_log, |p| {
             .unwrap()
             .as_secs();
 
-        println!("[{}] [{}] {}", timestamp, prefix, message);
+        // VM thread: use stderr to avoid blocking on stdout buffer flush
+        eprintln!("[{}] [{}] {}", timestamp, prefix, message);
     }
     ring_ret_number!(p, 1.0);
 });

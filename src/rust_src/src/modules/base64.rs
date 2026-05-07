@@ -26,10 +26,12 @@ ring_func!(bolt_base64_decode, |p| {
         return;
     }
     match base64::engine::general_purpose::STANDARD.decode(s) {
-        Ok(bytes) => {
-            let decoded = String::from_utf8_lossy(&bytes).to_string();
-            ring_ret_string!(p, &decoded);
-        }
+        Ok(bytes) => match String::from_utf8(bytes) {
+            Ok(s) => ring_ret_string!(p, &s),
+            Err(_) => {
+                ring_error!(p, "base64 decode: result is not valid UTF-8");
+            }
+        },
         Err(_) => {
             ring_ret_string!(p, "");
         }
@@ -55,10 +57,12 @@ ring_func!(bolt_base64_url_decode, |p| {
         return;
     }
     match base64::engine::general_purpose::URL_SAFE.decode(s) {
-        Ok(bytes) => {
-            let decoded = String::from_utf8_lossy(&bytes).to_string();
-            ring_ret_string!(p, &decoded);
-        }
+        Ok(bytes) => match String::from_utf8(bytes) {
+            Ok(s) => ring_ret_string!(p, &s),
+            Err(_) => {
+                ring_error!(p, "base64 decode: result is not valid UTF-8");
+            }
+        },
         Err(_) => {
             ring_ret_string!(p, "");
         }
