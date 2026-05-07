@@ -406,6 +406,7 @@ class Bolt {
         }
 
         bolt_ws_route(pHandle, cPath, cConnect, cMessage, cDisconnect)
+        if cMessage != "" { $bolt_last_route = cMessage }
         return self
     }
 
@@ -541,6 +542,12 @@ class Bolt {
     /// @return Number of clients.
     func wsRoomCount(cRoom) {
         return bolt_ws_room_count(pHandle, cRoom)
+    }
+
+    /// @brief Aborts the current WebSocket event from a before middleware.
+    /// Prevents the event handler and after middleware from running.
+    func wsEventAbort() {
+        bolt_ws_event_abort(pHandle)
     }
 
     // ========================================
@@ -947,12 +954,6 @@ class Bolt {
         bolt_set_multipart_field_size_limit(pHandle, nBytes)
     }
 
-    /// @brief Forces Secure flag on cookies even without TLS.
-    /// @param lEnabled True to force Secure, false for default behavior.
-    func forceSecureCookies(lEnabled) {
-        bolt_set_force_secure_cookies(pHandle, lEnabled)
-    }
-
     /// @brief Sets the maximum number of session entries.
     /// @param nMaxEntries Maximum session count.
     func setSessionCapacity(nMaxEntries) {
@@ -993,6 +994,24 @@ class Bolt {
     /// @param cIp IP address to whitelist.
     func proxyWhitelist(cIp) {
         bolt_proxy_whitelist(pHandle, cIp)
+    }
+
+    /// @brief Sets the maximum number of concurrent WebSocket connections.
+    /// @param nMax Maximum total connections (default: 1000).
+    func setWsMaxConnections(nMax) {
+        bolt_ws_max_connections(pHandle, nMax)
+    }
+
+    /// @brief Sets the maximum WebSocket connections per client IP.
+    /// @param nMax Maximum connections per IP (default: 10).
+    func setWsMaxPerIp(nMax) {
+        bolt_ws_max_per_ip(pHandle, nMax)
+    }
+
+    /// @brief Sets the per-client WebSocket message rate limit in messages per second.
+    /// @param nRate Maximum messages per second (default: 100). Set to 0 to disable.
+    func setWsMessageRateLimit(nRate) {
+        bolt_ws_message_rate_limit(pHandle, nRate)
     }
 
     // ========================================
@@ -1083,13 +1102,27 @@ class Bolt {
         return bolt_sse_broadcast(pHandle, cPath, cData)
     }
 
-    /// @brief Broadcasts a named event to all SSE clients on a path.
+    /// @brief Broadcasts data to SSE clients matching a params filter.
     /// @param cPath SSE endpoint path.
-    /// @param cEventName Event name.
-    /// @param cData Event data.
+    /// @param cData Data to send.
+    /// @param aParams Ring list of key-value pairs to filter subscribers (e.g., [:name = "sports"]).
     /// @return Number of clients notified, or -1 on error.
+    func sseBroadcastParams(cPath, cData, aParams) {
+        return bolt_sse_broadcast(pHandle, cPath, cData, aParams)
+    }
+
     func sseBroadcastEvent(cPath, cEventName, cData) {
         return bolt_sse_broadcast_event(pHandle, cPath, cEventName, cData)
+    }
+
+    /// @brief Broadcasts a named event to SSE clients matching a params filter.
+    /// @param cPath SSE endpoint path.
+    /// @param cEventName Event name string.
+    /// @param cData Event data.
+    /// @param aParams Ring list of key-value pairs to filter subscribers.
+    /// @return Number of clients notified, or -1 on error.
+    func sseBroadcastEventParams(cPath, cEventName, cData, aParams) {
+        return bolt_sse_broadcast_event(pHandle, cPath, cEventName, cData, aParams)
     }
 
     // ========================================
