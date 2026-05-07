@@ -942,6 +942,11 @@ class Bolt {
         bolt_set_body_limit(pHandle, nBytes)
     }
 
+    /// @brief Forces the Secure flag on session cookies even without TLS.
+    func forceSecureCookies() {
+        bolt_force_secure_cookies(pHandle)
+    }
+
     /// @brief Sets the maximum number of multipart form fields.
     /// @param nMaxFields Maximum number of fields (default: 1000).
     func setMultipartFieldCountLimit(nMaxFields) {
@@ -1012,6 +1017,12 @@ class Bolt {
     /// @param nRate Maximum messages per second (default: 100). Set to 0 to disable.
     func setWsMessageRateLimit(nRate) {
         bolt_ws_message_rate_limit(pHandle, nRate)
+    }
+
+    /// @brief Gets the number of WebSocket messages dropped due to VM channel overflow.
+    /// @return Dropped message count.
+    func wsDroppedCount() {
+        return bolt_ws_dropped_count(pHandle)
     }
 
     // ========================================
@@ -1123,6 +1134,13 @@ class Bolt {
     /// @return Number of clients notified, or -1 on error.
     func sseBroadcastEventParams(cPath, cEventName, cData, aParams) {
         return bolt_sse_broadcast_event(pHandle, cPath, cEventName, cData, aParams)
+    }
+
+    /// @brief Enables param-based event filtering for an SSE route.
+    /// Only subscribers whose route params match the broadcast params will receive events.
+    /// @param cPath SSE endpoint path to enable filtering on.
+    func sseFilterParams(cPath) {
+        bolt_sse_filter_params(pHandle, cPath)
     }
 
     // ========================================
