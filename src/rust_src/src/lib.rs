@@ -154,6 +154,7 @@ ring_libinit! {
     // WS Rate Limit & Event Abort
     "bolt_ws_message_rate_limit" => bolt_ws_message_rate_limit,
     "bolt_ws_event_abort" => bolt_ws_event_abort,
+    "bolt_ws_dropped_count" => bolt_ws_dropped_count,
 
     // Caching
     "bolt_cache_set" => bolt_cache_set,
@@ -164,6 +165,7 @@ ring_libinit! {
     // Server Configuration
     "bolt_set_timeout" => bolt_set_timeout,
     "bolt_set_body_limit" => bolt_set_body_limit,
+    "bolt_force_secure_cookies" => bolt_force_secure_cookies,
     "bolt_set_multipart_field_count_limit" => bolt_set_multipart_field_count_limit,
     "bolt_set_multipart_field_size_limit" => bolt_set_multipart_field_size_limit,
     "bolt_set_session_capacity" => bolt_set_session_capacity,
@@ -192,6 +194,7 @@ ring_libinit! {
     "bolt_sse_route" => bolt_sse_route,
     "bolt_sse_broadcast" => bolt_sse_broadcast,
     "bolt_sse_broadcast_event" => bolt_sse_broadcast_event,
+    "bolt_sse_filter_params" => bolt_sse_filter_params,
 
     // Global Middleware
     "bolt_before" => bolt_before,

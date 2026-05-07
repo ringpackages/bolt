@@ -13,7 +13,7 @@ ring_func!(bolt_env_load, |p| {
     match dotenvy::dotenv() {
         Ok(_) => ring_ret_number!(p, 1.0),
         Err(_) => {
-            ring_ret_number!(p, 0.0);
+            ring_error!(p, "env: failed to load .env file");
         }
     }
 });

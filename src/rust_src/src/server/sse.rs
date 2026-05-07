@@ -24,11 +24,21 @@ pub(crate) async fn handle_sse(
 ) -> HttpResponse {
     let path_str = req.match_pattern().unwrap_or_default();
 
-    let subscriber_params: HashMap<String, String> = req
-        .match_info()
+    let filter_params = state
+        .sse_routes
         .iter()
-        .map(|(k, v)| (k.to_string(), v.to_string()))
-        .collect();
+        .find(|r| r.path == path_str)
+        .map(|r| r.filter_params)
+        .unwrap_or(false);
+
+    let subscriber_params: HashMap<String, String> = if filter_params {
+        req.match_info()
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
+    } else {
+        HashMap::new()
+    };
 
     let broadcast_rx = {
         let channels = state.sse_broadcast_channels.lock();
@@ -39,6 +49,7 @@ pub(crate) async fn handle_sse(
         struct SseStream {
             inner: BroadcastStream<SseEvent>,
             interval: tokio::time::Interval,
+            filter_params: bool,
             subscriber_params: HashMap<String, String>,
         }
 
@@ -52,18 +63,13 @@ pub(crate) async fn handle_sse(
                 loop {
                     match Pin::new(&mut self.inner).poll_next(cx) {
                         Poll::Ready(Some(Ok(evt))) => {
-                            let pass = if self.subscriber_params.is_empty() {
-                                true
-                            } else if self
-                                .subscriber_params
-                                .iter()
-                                .all(|(k, v)| evt.params.get(k) == Some(v))
+                            if self.filter_params
+                                && !self.subscriber_params.is_empty()
+                                && !self
+                                    .subscriber_params
+                                    .iter()
+                                    .all(|(k, v)| evt.params.get(k) == Some(v))
                             {
-                                true
-                            } else {
-                                false
-                            };
-                            if !pass {
                                 continue;
                             }
                             let mut event_str = String::new();
@@ -100,6 +106,7 @@ pub(crate) async fn handle_sse(
         let stream = SseStream {
             inner: BroadcastStream::new(rx),
             interval: tokio::time::interval(Duration::from_secs(15)),
+            filter_params,
             subscriber_params,
         };
 
@@ -135,6 +142,7 @@ ring_func!(bolt_sse_route, |p| {
         server.sse_routes.push(SseRouteDefinition {
             path: path_converted.to_string(),
             handler_name: handler.to_string(),
+            filter_params: false,
         });
 
         let mut channels = server.sse_broadcast_channels.lock();
@@ -165,9 +173,8 @@ ring_func!(bolt_sse_broadcast, |p| {
 
     let params: HashMap<String, String> = if ring_api_paracount(p) >= 4 && ring_api_islist(p, 4) {
         let list = ring_api_getlist(p, 4);
-        let value = ring_list_to_json(list);
-        match value {
-            serde_json::Value::Object(map) => map
+        match ring_list_to_json(list) {
+            Ok(serde_json::Value::Object(map)) => map
                 .into_iter()
                 .filter_map(|(k, v)| {
                     if v.is_string() {
@@ -177,7 +184,11 @@ ring_func!(bolt_sse_broadcast, |p| {
                     }
                 })
                 .collect(),
-            _ => HashMap::new(),
+            Ok(_) => HashMap::new(),
+            Err(e) => {
+                eprintln!("[bolt] SSE broadcast params: {}", e);
+                HashMap::new()
+            }
         }
     } else {
         HashMap::new()
@@ -225,9 +236,8 @@ ring_func!(bolt_sse_broadcast_event, |p| {
 
     let params: HashMap<String, String> = if ring_api_paracount(p) >= 5 && ring_api_islist(p, 5) {
         let list = ring_api_getlist(p, 5);
-        let value = ring_list_to_json(list);
-        match value {
-            serde_json::Value::Object(map) => map
+        match ring_list_to_json(list) {
+            Ok(serde_json::Value::Object(map)) => map
                 .into_iter()
                 .filter_map(|(k, v)| {
                     if v.is_string() {
@@ -237,7 +247,11 @@ ring_func!(bolt_sse_broadcast_event, |p| {
                     }
                 })
                 .collect(),
-            _ => HashMap::new(),
+            Ok(_) => HashMap::new(),
+            Err(e) => {
+                eprintln!("[bolt] SSE broadcast_event params: {}", e);
+                HashMap::new()
+            }
         }
     } else {
         HashMap::new()
@@ -261,6 +275,35 @@ ring_func!(bolt_sse_broadcast_event, |p| {
             }
         } else {
             ring_ret_number!(p, -1.0);
+        }
+    }
+});
+
+/// bolt_sse_filter_params(server, path) - enable param-based event filtering for an SSE route
+ring_func!(bolt_sse_filter_params, |p| {
+    ring_check_paracount!(p, 2);
+    ring_check_cpointer!(p, 1);
+    ring_check_string!(p, 2);
+
+    let ptr = ring_api_getcpointer(p, 1, HTTP_SERVER_TYPE);
+    if ptr.is_null() {
+        return;
+    }
+
+    let path = ring_get_string!(p, 2);
+    let path_converted = convert_path_params(path);
+
+    unsafe {
+        let server = &mut *(ptr as *mut HttpServer);
+        if let Some(route) = server
+            .sse_routes
+            .iter_mut()
+            .find(|r| r.path == path_converted)
+        {
+            route.filter_params = true;
+            ring_ret_number!(p, 1.0);
+        } else {
+            ring_error!(p, "sse_filter_params: no SSE route found for path");
         }
     }
 });

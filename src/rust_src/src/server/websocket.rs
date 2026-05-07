@@ -207,7 +207,9 @@ pub(crate) async fn handle_websocket(
                             }) {
                                 Ok(_) => {}
                                 Err(_) => {
-                                    eprintln!("[WS] VM channel full, dropping message event");
+                                    state_clone
+                                        .ws_dropped_count
+                                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                                 }
                             }
                         }
@@ -232,7 +234,9 @@ pub(crate) async fn handle_websocket(
                             }) {
                                 Ok(_) => {}
                                 Err(_) => {
-                                    eprintln!("[WS] VM channel full, dropping message event");
+                                    state_clone
+                                        .ws_dropped_count
+                                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                                 }
                             }
                         }
@@ -927,4 +931,23 @@ ring_func!(bolt_ws_event_abort, |p| {
     }
 
     ring_ret_number!(p, 1.0);
+});
+
+/// bolt_ws_dropped_count(server) -> number of dropped WS messages
+ring_func!(bolt_ws_dropped_count, |p| {
+    ring_check_paracount!(p, 1);
+    ring_check_cpointer!(p, 1);
+
+    let ptr = ring_api_getcpointer(p, 1, HTTP_SERVER_TYPE);
+    if ptr.is_null() {
+        return;
+    }
+
+    unsafe {
+        let server = &*(ptr as *const HttpServer);
+        let count = server
+            .ws_dropped_count
+            .load(std::sync::atomic::Ordering::Relaxed);
+        ring_ret_number!(p, count as f64);
+    }
 });

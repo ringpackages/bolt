@@ -274,6 +274,7 @@ impl Default for ServerConfig {
 pub struct SseRouteDefinition {
     pub path: String,
     pub handler_name: String,
+    pub filter_params: bool,
 }
 
 pub struct VmPtr(pub *mut c_void);
@@ -332,6 +333,7 @@ pub struct HttpServer {
     pub ws_max_per_ip: usize,
     pub ws_message_rate_limit: u64,
     pub ws_event_aborted: Arc<Mutex<bool>>,
+    pub ws_dropped_count: Arc<std::sync::atomic::AtomicU64>,
 }
 
 #[derive(Clone, Debug)]
@@ -402,6 +404,7 @@ impl HttpServer {
             ws_max_per_ip: 10,
             ws_message_rate_limit: 100,
             ws_event_aborted: Arc::new(Mutex::new(false)),
+            ws_dropped_count: Arc::new(std::sync::atomic::AtomicU64::new(0)),
         };
         server.max_multipart_fields = server.config.max_multipart_fields;
         server.max_multipart_field_size = server.config.max_multipart_field_size;
@@ -523,6 +526,8 @@ pub(crate) struct AppState {
     ws_max_connections: usize,
     ws_max_per_ip: usize,
     ws_message_rate_limit: u64,
+    sse_routes: Vec<SseRouteDefinition>,
+    ws_dropped_count: Arc<std::sync::atomic::AtomicU64>,
 }
 
 /// Check route constraints (standalone function for AppState)
@@ -761,6 +766,7 @@ ring_func!(bolt_listen, |p| {
         let ws_max_per_ip = server.ws_max_per_ip;
         let ws_message_rate_limit = server.ws_message_rate_limit;
         let ws_event_aborted = server.ws_event_aborted.clone();
+        let ws_dropped_count = server.ws_dropped_count.clone();
 
         let ip_whitelist = server.config.ip_whitelist.clone();
         let ip_blacklist = server.config.ip_blacklist.clone();
@@ -837,6 +843,7 @@ ring_func!(bolt_listen, |p| {
                 ws_max_per_ip,
                 ws_message_rate_limit,
                 ws_event_aborted,
+                ws_dropped_count,
             )
             .await
         });
@@ -896,6 +903,7 @@ async fn run_server(
     ws_max_per_ip: usize,
     ws_message_rate_limit: u64,
     ws_event_aborted: Arc<Mutex<bool>>,
+    ws_dropped_count: Arc<std::sync::atomic::AtomicU64>,
 ) -> Result<(), std::io::Error> {
     let openapi_spec_clone = openapi_spec.clone();
     let (sse_shutdown_tx, _) = tokio::sync::broadcast::channel::<()>(1);
@@ -1154,6 +1162,8 @@ async fn run_server(
         ws_max_connections,
         ws_max_per_ip,
         ws_message_rate_limit,
+        sse_routes: sse_routes.clone(),
+        ws_dropped_count,
     };
 
     let limiters_clone = state.route_limiters.clone();
@@ -2718,6 +2728,24 @@ ring_func!(bolt_set_session_capacity, |p| {
     ring_ret_number!(p, 1.0);
 });
 
+/// bolt_set_force_secure_cookies(server, enabled) - force Secure flag on session cookies even without TLS
+ring_func!(bolt_force_secure_cookies, |p| {
+    ring_check_paracount!(p, 1);
+    ring_check_cpointer!(p, 1);
+
+    let ptr = ring_api_getcpointer(p, 1, HTTP_SERVER_TYPE);
+    if ptr.is_null() {
+        return;
+    }
+
+    unsafe {
+        let server = &mut *(ptr as *mut HttpServer);
+        server.config.force_secure_cookies = true;
+    }
+
+    ring_ret_number!(p, 1.0);
+});
+
 /// bolt_set_session_ttl(server, seconds) - set session TTL in seconds
 ring_func!(bolt_set_session_ttl, |p| {
     ring_check_paracount!(p, 2);
@@ -3617,6 +3645,7 @@ mod tests {
         let route = SseRouteDefinition {
             path: "/events".into(),
             handler_name: "sse_handler".into(),
+            filter_params: false,
         };
         assert_eq!(route.path, "/events");
         assert_eq!(route.handler_name, "sse_handler");
@@ -4075,6 +4104,8 @@ mod tests {
             ws_max_per_ip: 10,
             ws_message_rate_limit: 100,
             proxy_whitelist: Vec::new(),
+            sse_routes: Vec::new(),
+            ws_dropped_count: Arc::new(std::sync::atomic::AtomicU64::new(0)),
         }
     }
 

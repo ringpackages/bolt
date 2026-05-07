@@ -18,10 +18,15 @@ ring_func!(bolt_json_encode, |p| {
     }
 
     let list = ring_api_getlist(p, 1);
-    let value = ring_list_to_json(list);
-    let json_str = serde_json::to_string(&value).unwrap_or_else(|_| "null".to_string());
-
-    ring_ret_string!(p, &json_str);
+    match ring_list_to_json(list) {
+        Ok(value) => {
+            let json_str = serde_json::to_string(&value).unwrap_or_else(|_| "null".to_string());
+            ring_ret_string!(p, &json_str);
+        }
+        Err(e) => {
+            ring_error!(p, &e);
+        }
+    }
 });
 
 /// bolt_json_decode(json_string) -> ring_list
@@ -35,8 +40,10 @@ ring_func!(bolt_json_decode, |p| {
     match serde_json::from_str::<Value>(json_str) {
         Ok(value) => {
             let list = ring_api_newlist(p);
-            json_to_ring_list(list, &value, 0);
-            ring_ret_list!(p, list);
+            match json_to_ring_list(list, &value, 0) {
+                Ok(()) => ring_ret_list!(p, list),
+                Err(e) => ring_error!(p, &e),
+            }
         }
         Err(_) => {
             ring_api_retlist(p, ring_api_newlist(p));
@@ -54,28 +61,34 @@ ring_func!(bolt_json_pretty, |p| {
     }
 
     let list = ring_api_getlist(p, 1);
-    let value = ring_list_to_json(list);
-    let json_str = serde_json::to_string_pretty(&value).unwrap_or_else(|_| "null".to_string());
-
-    ring_ret_string!(p, &json_str);
+    match ring_list_to_json(list) {
+        Ok(value) => {
+            let json_str =
+                serde_json::to_string_pretty(&value).unwrap_or_else(|_| "null".to_string());
+            ring_ret_string!(p, &json_str);
+        }
+        Err(e) => {
+            ring_error!(p, &e);
+        }
+    }
 });
 
 // Convert Ring list to serde_json Value
 const MAX_JSON_DEPTH: usize = 128;
 
-pub fn ring_list_to_json(list: RingList) -> Value {
+pub fn ring_list_to_json(list: RingList) -> Result<Value, String> {
     ring_list_to_json_inner(list, 0)
 }
 
-fn ring_list_to_json_inner(list: RingList, depth: usize) -> Value {
+fn ring_list_to_json_inner(list: RingList, depth: usize) -> Result<Value, String> {
     if depth >= MAX_JSON_DEPTH {
-        return Value::Null;
+        return Err("JSON nesting depth exceeds limit (128)".to_string());
     }
 
     let size = ring_list_getsize(list);
 
     if size == 0 {
-        return Value::Array(vec![]);
+        return Ok(Value::Array(vec![]));
     }
 
     // Check if it's a hash-like list (list of [key, value] pairs where key is string starting with :)
@@ -95,7 +108,7 @@ fn ring_list_to_json_inner(list: RingList, depth: usize) -> Value {
                 // Remove : prefix if present
                 let clean_key = key.strip_prefix(':').unwrap_or(&key).to_string();
 
-                let val = get_list_item_as_json(inner, 2, depth + 1);
+                let val = get_list_item_as_json(inner, 2, depth + 1)?;
                 items.push((clean_key, val));
             } else {
                 is_object = false;
@@ -106,10 +119,8 @@ fn ring_list_to_json_inner(list: RingList, depth: usize) -> Value {
             let s = ring_list_getstring_str(list, idx);
             if s.starts_with(':') && i < size {
                 let key = s.strip_prefix(':').unwrap_or(&s).to_string();
-                let val = get_list_item_as_json(list, i + 1, depth + 1);
+                let val = get_list_item_as_json(list, i + 1, depth + 1)?;
                 items.push((key, val));
-                // Skip the value in next iteration - but this pattern doesn't work well
-                // Better to just treat as array
             }
             is_object = false;
             break;
@@ -121,40 +132,40 @@ fn ring_list_to_json_inner(list: RingList, depth: usize) -> Value {
 
     if is_object && !items.is_empty() {
         let map: Map<String, Value> = items.into_iter().collect();
-        Value::Object(map)
+        Ok(Value::Object(map))
     } else {
         // Treat as array
         let mut arr = Vec::new();
         for i in 1..=size {
-            arr.push(get_list_item_as_json(list, i, depth + 1));
+            arr.push(get_list_item_as_json(list, i, depth + 1)?);
         }
-        Value::Array(arr)
+        Ok(Value::Array(arr))
     }
 }
 
-fn get_list_item_as_json(list: RingList, index: u32, depth: usize) -> Value {
+fn get_list_item_as_json(list: RingList, index: u32, depth: usize) -> Result<Value, String> {
     if ring_list_isstring(list, index) {
         let s = ring_list_getstring_str(list, index);
-        Value::String(s)
+        Ok(Value::String(s))
     } else if ring_list_isnumber(list, index) {
         let n = ring_list_getdouble(list, index);
         if n.fract() == 0.0 && n >= i64::MIN as f64 && n <= i64::MAX as f64 {
-            Value::Number(serde_json::Number::from(n as i64))
+            Ok(Value::Number(serde_json::Number::from(n as i64)))
         } else {
-            serde_json::Number::from_f64(n)
+            Ok(serde_json::Number::from_f64(n)
                 .map(Value::Number)
-                .unwrap_or(Value::Null)
+                .unwrap_or(Value::Null))
         }
     } else if ring_list_islist(list, index) {
         let inner = ring_list_getlist(list, index);
-        ring_list_to_json_inner(inner, depth + 1)
+        ring_list_to_json_inner(inner, depth)
     } else {
-        Value::Null
+        Ok(Value::Null)
     }
 }
 
 // Convert serde_json Value to Ring list
-fn json_to_ring_list(list: RingList, value: &Value, depth: usize) {
+fn json_to_ring_list(list: RingList, value: &Value, depth: usize) -> Result<(), String> {
     match value {
         Value::Object(map) => {
             for (key, val) in map {
@@ -163,23 +174,24 @@ fn json_to_ring_list(list: RingList, value: &Value, depth: usize) {
                 let item = ring_list_newlist(list);
                 // Add key as string (Ring will handle hash access)
                 ring_list_addstring_str(item, key);
-                add_json_value_to_list(item, val, depth + 1);
+                add_json_value_to_list(item, val, depth + 1)?;
             }
         }
         Value::Array(arr) => {
             for val in arr {
-                add_json_value_to_list(list, val, depth + 1);
+                add_json_value_to_list(list, val, depth + 1)?;
             }
         }
         _ => {
-            add_json_value_to_list(list, value, depth + 1);
+            add_json_value_to_list(list, value, depth + 1)?;
         }
     }
+    Ok(())
 }
 
-fn add_json_value_to_list(list: RingList, value: &Value, depth: usize) {
+fn add_json_value_to_list(list: RingList, value: &Value, depth: usize) -> Result<(), String> {
     if depth >= MAX_JSON_DEPTH {
-        return;
+        return Err("JSON nesting depth exceeds limit (128)".to_string());
     }
     match value {
         Value::Null => {
@@ -197,7 +209,7 @@ fn add_json_value_to_list(list: RingList, value: &Value, depth: usize) {
         Value::Array(arr) => {
             let inner = ring_list_newlist(list);
             for item in arr {
-                add_json_value_to_list(inner, item, depth + 1);
+                add_json_value_to_list(inner, item, depth + 1)?;
             }
         }
         Value::Object(map) => {
@@ -205,8 +217,9 @@ fn add_json_value_to_list(list: RingList, value: &Value, depth: usize) {
             for (key, val) in map {
                 let pair = ring_list_newlist(inner);
                 ring_list_addstring_str(pair, key);
-                add_json_value_to_list(pair, val, depth + 1);
+                add_json_value_to_list(pair, val, depth + 1)?;
             }
         }
     }
+    Ok(())
 }
