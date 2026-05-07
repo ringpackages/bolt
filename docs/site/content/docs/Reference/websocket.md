@@ -63,3 +63,22 @@ $bolt.wsRoomCount(cRoom)                         # Number of clients in room
 $bolt.wsBroadcast(cMessage)     # Send to ALL connected clients
 $bolt.wsConnectionCount()       # Total active connections
 ```
+
+### Event Abort (use in before middleware)
+
+```ring
+$bolt.wsEventAbort()            # Abort current WS event, skip handler and after middleware
+```
+
+Use inside a `before` middleware to conditionally reject WebSocket events:
+
+```ring
+@ws("/chat", "on_connect", "on_message", "on_disconnect")
+before("ws_auth_check")
+
+func ws_auth_check
+    if $bolt.wsEventMessage() = "unauthorized"
+        $bolt.wsEventAbort()
+    ok
+end
+```

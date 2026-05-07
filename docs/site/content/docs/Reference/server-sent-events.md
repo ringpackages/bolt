@@ -22,7 +22,23 @@ $bolt.sseBroadcast("/events", "New notification!")
 Send named event to all subscribers.
 
 ```ring
-$bolt.sseBroadcastEvent("/events", "update", '{"count": 42}')
+$bolt.sseBroadcastEvent("/events", "update", "v2 released")
+```
+
+### $bolt.sseBroadcastParams(cPath, cData, aParams)
+Send data event to subscribers matching a params filter. Only subscribers whose route params contain all the specified key-value pairs will receive the event.
+
+```ring
+$bolt.sseBroadcastParams("/sse/channel/:name", "goal!", [:name = "sports"])
+```
+
+Subscribers on `/sse/channel/sports` receive the event; subscribers on `/sse/channel/tech` do not.
+
+### $bolt.sseBroadcastEventParams(cPath, cEventName, cData, aParams)
+Send named event to subscribers matching a params filter.
+
+```ring
+$bolt.sseBroadcastEventParams("/sse/channel/:name", "breaking", "headline", [:name = "news"])
 ```
 
 **Client-side:**

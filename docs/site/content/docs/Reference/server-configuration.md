@@ -99,3 +99,63 @@ Enable or disable request logging.
 ```ring
 enableLogging()
 ```
+
+### setMultipartFieldCountLimit(nMaxFields)
+Set maximum number of multipart form fields.
+
+```ring
+setMultipartFieldCountLimit(100)  # Max 100 fields
+```
+
+**Default:** 1000 fields
+
+### setMultipartFieldSizeLimit(nBytes)
+Set maximum size per multipart form field in bytes.
+
+```ring
+setMultipartFieldSizeLimit(5 * 1024 * 1024)  # 5MB per field
+```
+
+**Default:** 10MB
+
+### ipWhitelist(cIp) / ipBlacklist(cIp)
+Add an IP address (or CIDR range) to the whitelist or blacklist.
+
+```ring
+ipWhitelist("192.168.1.0/24")
+ipBlacklist("10.0.0.5")
+```
+
+### proxyWhitelist(cIp)
+Add a trusted proxy IP. Requests from these IPs will use X-Forwarded-For / X-Real-IP headers for client IP resolution.
+
+```ring
+proxyWhitelist("10.0.0.1")
+```
+
+### setWsMaxConnections(nMax)
+Set maximum total concurrent WebSocket connections.
+
+```ring
+setWsMaxConnections(500)  # Max 500 total connections
+```
+
+**Default:** 1000
+
+### setWsMaxPerIp(nMax)
+Set maximum WebSocket connections per client IP.
+
+```ring
+setWsMaxPerIp(5)  # Max 5 connections per IP
+```
+
+**Default:** 10
+
+### setWsMessageRateLimit(nRate)
+Set per-client WebSocket message rate limit in messages per second. Set to 0 to disable.
+
+```ring
+setWsMessageRateLimit(50)  # Max 50 messages/sec per client
+```
+
+**Default:** 100
