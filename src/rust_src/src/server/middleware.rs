@@ -79,6 +79,17 @@ ring_func!(bolt_route_before, |p| {
                 found = true;
             }
         }
+        for ws_route in &mut server.ws_routes {
+            if ws_route.on_connect.as_deref() == Some(handler_name)
+                || ws_route.on_message.as_deref() == Some(handler_name)
+                || ws_route.on_disconnect.as_deref() == Some(handler_name)
+            {
+                ws_route
+                    .before_middleware
+                    .push((handler_name.to_string(), middleware.to_string()));
+                found = true;
+            }
+        }
         if !found {
             ring_error!(
                 p,
@@ -115,6 +126,17 @@ ring_func!(bolt_route_after, |p| {
         for route in &mut server.routes {
             if route.handler_name == handler_name {
                 route.after_middleware.push(middleware.to_string());
+                found = true;
+            }
+        }
+        for ws_route in &mut server.ws_routes {
+            if ws_route.on_connect.as_deref() == Some(handler_name)
+                || ws_route.on_message.as_deref() == Some(handler_name)
+                || ws_route.on_disconnect.as_deref() == Some(handler_name)
+            {
+                ws_route
+                    .after_middleware
+                    .push((handler_name.to_string(), middleware.to_string()));
                 found = true;
             }
         }

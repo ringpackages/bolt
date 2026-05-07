@@ -147,6 +147,14 @@ ring_libinit! {
     "bolt_ws_room_members" => bolt_ws_room_members,
     "bolt_ws_room_count" => bolt_ws_room_count,
 
+    // WS Connection Limits
+    "bolt_ws_max_connections" => bolt_ws_max_connections,
+    "bolt_ws_max_per_ip" => bolt_ws_max_per_ip,
+
+    // WS Rate Limit & Event Abort
+    "bolt_ws_message_rate_limit" => bolt_ws_message_rate_limit,
+    "bolt_ws_event_abort" => bolt_ws_event_abort,
+
     // Caching
     "bolt_cache_set" => bolt_cache_set,
     "bolt_cache_get" => bolt_cache_get,

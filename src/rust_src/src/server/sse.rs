@@ -6,6 +6,7 @@
 
 use actix_web::{HttpRequest, HttpResponse};
 use futures_util::stream::Stream;
+use std::collections::HashMap;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
@@ -15,12 +16,19 @@ use crate::HTTP_SERVER_TYPE;
 use ring_lang_rs::*;
 
 use super::{AppState, HttpServer, SseEvent, SseRouteDefinition, convert_path_params};
+use crate::modules::json::ring_list_to_json;
 
 pub(crate) async fn handle_sse(
     req: HttpRequest,
     state: actix_web::web::Data<AppState>,
 ) -> HttpResponse {
     let path_str = req.match_pattern().unwrap_or_default();
+
+    let subscriber_params: HashMap<String, String> = req
+        .match_info()
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect();
 
     let broadcast_rx = {
         let channels = state.sse_broadcast_channels.lock();
@@ -31,6 +39,7 @@ pub(crate) async fn handle_sse(
         struct SseStream {
             inner: BroadcastStream<SseEvent>,
             interval: tokio::time::Interval,
+            subscriber_params: HashMap<String, String>,
         }
 
         impl Stream for SseStream {
@@ -40,27 +49,43 @@ pub(crate) async fn handle_sse(
                 mut self: Pin<&mut Self>,
                 cx: &mut Context<'_>,
             ) -> Poll<Option<Self::Item>> {
-                match Pin::new(&mut self.inner).poll_next(cx) {
-                    Poll::Ready(Some(Ok(evt))) => {
-                        let mut event_str = String::new();
-                        if let Some(ref event_name) = evt.event {
-                            let sanitized: String = event_name
-                                .chars()
-                                .filter(|c| *c != '\r' && *c != '\n' && *c != ':')
-                                .collect();
-                            if !sanitized.is_empty() {
-                                event_str.push_str(&format!("event: {}\n", sanitized));
+                loop {
+                    match Pin::new(&mut self.inner).poll_next(cx) {
+                        Poll::Ready(Some(Ok(evt))) => {
+                            let pass = if self.subscriber_params.is_empty() {
+                                true
+                            } else if self
+                                .subscriber_params
+                                .iter()
+                                .all(|(k, v)| evt.params.get(k) == Some(v))
+                            {
+                                true
+                            } else {
+                                false
+                            };
+                            if !pass {
+                                continue;
                             }
+                            let mut event_str = String::new();
+                            if let Some(ref event_name) = evt.event {
+                                let sanitized: String = event_name
+                                    .chars()
+                                    .filter(|c| *c != '\r' && *c != '\n' && *c != ':')
+                                    .collect();
+                                if !sanitized.is_empty() {
+                                    event_str.push_str(&format!("event: {}\n", sanitized));
+                                }
+                            }
+                            for line in evt.data.lines() {
+                                event_str.push_str(&format!("data: {}\n", line));
+                            }
+                            event_str.push('\n');
+                            return Poll::Ready(Some(Ok(actix_web::web::Bytes::from(event_str))));
                         }
-                        for line in evt.data.lines() {
-                            event_str.push_str(&format!("data: {}\n", line));
-                        }
-                        event_str.push('\n');
-                        return Poll::Ready(Some(Ok(actix_web::web::Bytes::from(event_str))));
+                        Poll::Ready(Some(Err(_))) => continue,
+                        Poll::Ready(None) => return Poll::Ready(None),
+                        Poll::Pending => break,
                     }
-                    Poll::Ready(Some(Err(_))) => {}
-                    Poll::Ready(None) => return Poll::Ready(None),
-                    Poll::Pending => {}
                 }
 
                 match self.interval.poll_tick(cx) {
@@ -75,6 +100,7 @@ pub(crate) async fn handle_sse(
         let stream = SseStream {
             inner: BroadcastStream::new(rx),
             interval: tokio::time::interval(Duration::from_secs(15)),
+            subscriber_params,
         };
 
         HttpResponse::Ok()
@@ -122,7 +148,7 @@ ring_func!(bolt_sse_route, |p| {
 });
 
 ring_func!(bolt_sse_broadcast, |p| {
-    ring_check_paracount!(p, 3);
+    ring_check_paracount_range!(p, 3, 4);
     ring_check_cpointer!(p, 1);
     ring_check_string!(p, 2);
     ring_check_string!(p, 3);
@@ -137,6 +163,26 @@ ring_func!(bolt_sse_broadcast, |p| {
     let data = ring_get_string!(p, 3);
     let path_converted = convert_path_params(path);
 
+    let params: HashMap<String, String> = if ring_api_paracount(p) >= 4 && ring_api_islist(p, 4) {
+        let list = ring_api_getlist(p, 4);
+        let value = ring_list_to_json(list);
+        match value {
+            serde_json::Value::Object(map) => map
+                .into_iter()
+                .filter_map(|(k, v)| {
+                    if v.is_string() {
+                        Some((k, v.as_str().unwrap().to_string()))
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+            _ => HashMap::new(),
+        }
+    } else {
+        HashMap::new()
+    };
+
     unsafe {
         let server = &*(ptr as *const HttpServer);
         let channels = server.sse_broadcast_channels.lock();
@@ -145,6 +191,7 @@ ring_func!(bolt_sse_broadcast, |p| {
             let evt = SseEvent {
                 event: None,
                 data: data.to_string(),
+                params,
             };
             match tx.send(evt) {
                 Ok(count) => ring_ret_number!(p, count as f64),
@@ -159,7 +206,7 @@ ring_func!(bolt_sse_broadcast, |p| {
 });
 
 ring_func!(bolt_sse_broadcast_event, |p| {
-    ring_check_paracount!(p, 4);
+    ring_check_paracount_range!(p, 4, 5);
     ring_check_cpointer!(p, 1);
     ring_check_string!(p, 2);
     ring_check_string!(p, 3);
@@ -176,6 +223,26 @@ ring_func!(bolt_sse_broadcast_event, |p| {
     let data = ring_get_string!(p, 4);
     let path_converted = convert_path_params(path);
 
+    let params: HashMap<String, String> = if ring_api_paracount(p) >= 5 && ring_api_islist(p, 5) {
+        let list = ring_api_getlist(p, 5);
+        let value = ring_list_to_json(list);
+        match value {
+            serde_json::Value::Object(map) => map
+                .into_iter()
+                .filter_map(|(k, v)| {
+                    if v.is_string() {
+                        Some((k, v.as_str().unwrap().to_string()))
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+            _ => HashMap::new(),
+        }
+    } else {
+        HashMap::new()
+    };
+
     unsafe {
         let server = &*(ptr as *const HttpServer);
         let channels = server.sse_broadcast_channels.lock();
@@ -184,6 +251,7 @@ ring_func!(bolt_sse_broadcast_event, |p| {
             let evt = SseEvent {
                 event: Some(event_name.to_string()),
                 data: data.to_string(),
+                params,
             };
             match tx.send(evt) {
                 Ok(count) => ring_ret_number!(p, count as f64),

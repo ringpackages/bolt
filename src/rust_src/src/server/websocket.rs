@@ -42,41 +42,48 @@ pub(crate) async fn handle_websocket(
         .map(|addr| addr.ip().to_string())
         .unwrap_or_else(|| "unknown".to_string());
     if !state.ip_whitelist.is_empty() || !state.ip_blacklist.is_empty() {
-        use ipnetwork::IpNetwork;
         let parsed_ip = client_ip_str
             .parse::<std::net::IpAddr>()
             .unwrap_or_else(|_| std::net::IpAddr::from_str("0.0.0.0").unwrap());
 
-        let ip_matches =
-            |ip: std::net::IpAddr, list: &[IpNetwork]| list.iter().any(|net| net.contains(ip));
-
-        let mapped_v4 = match parsed_ip {
-            std::net::IpAddr::V6(ref v6) => v6.to_ipv4_mapped().map(std::net::IpAddr::from),
-            _ => None,
-        };
-
-        let whitelisted = ip_matches(parsed_ip, &state.ip_whitelist)
-            || mapped_v4.map_or(false, |ip| ip_matches(ip, &state.ip_whitelist))
-            || (parsed_ip.is_ipv6()
-                && parsed_ip.is_loopback()
-                && ip_matches(std::net::IpAddr::from([127, 0, 0, 1]), &state.ip_whitelist));
-
-        if !state.ip_whitelist.is_empty() && !whitelisted {
-            return Ok(HttpResponse::Forbidden().body("Forbidden"));
-        }
-
-        let blacklisted = ip_matches(parsed_ip, &state.ip_blacklist)
-            || mapped_v4.map_or(false, |ip| ip_matches(ip, &state.ip_blacklist))
-            || (parsed_ip.is_ipv6()
-                && parsed_ip.is_loopback()
-                && ip_matches(std::net::IpAddr::from([127, 0, 0, 1]), &state.ip_blacklist));
-
-        if blacklisted {
+        if !super::is_ip_allowed(parsed_ip, &state.ip_whitelist, &state.ip_blacklist) {
             return Ok(HttpResponse::Forbidden().body("Forbidden"));
         }
     }
 
-    let (response, session, mut msg_stream) = actix_ws::handle(&req, stream)?;
+    if state
+        .ws_connection_count
+        .load(std::sync::atomic::Ordering::Relaxed)
+        >= state.ws_max_connections
+    {
+        return Ok(HttpResponse::ServiceUnavailable().body("Too many WebSocket connections"));
+    }
+
+    let per_ip_count = state
+        .ws_per_ip_count
+        .entry(client_ip_str.clone())
+        .or_insert(0);
+    if *per_ip_count >= state.ws_max_per_ip {
+        drop(per_ip_count);
+        return Ok(
+            HttpResponse::TooManyRequests().body("Too many WebSocket connections from this IP")
+        );
+    }
+    drop(per_ip_count);
+
+    let (response, session, msg_stream) = actix_ws::handle(&req, stream)?;
+
+    let mut msg_stream = msg_stream
+        .aggregate_continuations()
+        .max_continuation_size(4 * 1024 * 1024);
+
+    state
+        .ws_connection_count
+        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    *state
+        .ws_per_ip_count
+        .entry(client_ip_str.clone())
+        .or_insert(0) += 1;
 
     let ws_params: HashMap<String, String> = req
         .match_info()
@@ -88,7 +95,11 @@ pub(crate) async fn handle_websocket(
 
     let (client_tx, mut client_rx) = tokio::sync::mpsc::channel::<WsOutMessage>(256);
 
+    let reader_tx = client_tx.clone();
     state.ws_clients.insert(client_id.clone(), client_tx);
+    state
+        .ws_client_ips
+        .insert(client_id.clone(), client_ip_str.clone());
 
     let mut broadcast_rx = state.ws_broadcast_tx.subscribe();
 
@@ -107,7 +118,7 @@ pub(crate) async fn handle_websocket(
                     path: ws_path.clone(),
                     params: ws_params.clone(),
                 },
-                done_tx,
+                done_tx: Some(done_tx),
             })
             .await;
         let _ = done_rx.await;
@@ -143,6 +154,11 @@ pub(crate) async fn handle_websocket(
                                 break;
                             }
                         }
+                        Some(WsOutMessage::Pong(data)) => {
+                            if session_clone.pong(&data).await.is_err() {
+                                break;
+                            }
+                        }
                         Some(WsOutMessage::Close) => {
                             let _ = session_clone.close(None).await;
                             break;
@@ -159,16 +175,24 @@ pub(crate) async fn handle_websocket(
     let ws_path_clone = ws_path.clone();
     let ws_params_clone = ws_params.clone();
     actix_web::rt::spawn(async move {
-        while let Some(Ok(msg)) = msg_stream.recv().await {
-            match msg {
-                actix_ws::Message::Text(text) => {
-                    let trimmed_text = text.to_string();
+        let rate_limit = state_clone.ws_message_rate_limit;
+        let mut rate_interval = if rate_limit > 0 {
+            let micros = 1_000_000u64 / rate_limit;
+            Some(tokio::time::interval(std::time::Duration::from_micros(
+                micros.max(1),
+            )))
+        } else {
+            None
+        };
 
-                    if let Some(ref handler) = on_message {
-                        let (done_tx, done_rx) = tokio::sync::oneshot::channel();
-                        let _ = state_clone
-                            .vm_tx
-                            .send(VmWork::WsEvent {
+        while let Some(result) = msg_stream.recv().await {
+            match result {
+                Ok(msg) => match msg {
+                    actix_ws::AggregatedMessage::Text(bytes) => {
+                        let trimmed_text = bytes.to_string();
+
+                        if let Some(ref handler) = on_message {
+                            match state_clone.vm_tx.try_send(VmWork::WsEvent {
                                 handler_name: handler.clone(),
                                 ctx: WsEventContext {
                                     client_id: client_id_clone.clone(),
@@ -179,36 +203,66 @@ pub(crate) async fn handle_websocket(
                                     path: ws_path_clone.clone(),
                                     params: ws_params_clone.clone(),
                                 },
-                                done_tx,
-                            })
-                            .await;
-                        let _ = done_rx.await;
+                                done_tx: None,
+                            }) {
+                                Ok(_) => {}
+                                Err(_) => {
+                                    eprintln!("[WS] VM channel full, dropping message event");
+                                }
+                            }
+                        }
+                        if let Some(ref mut iv) = rate_interval {
+                            iv.tick().await;
+                        }
                     }
-                }
-                actix_ws::Message::Binary(data) => {
-                    if let Some(ref handler) = on_message {
-                        let (done_tx, done_rx) = tokio::sync::oneshot::channel();
-                        let _ = state_clone
-                            .vm_tx
-                            .send(VmWork::WsEvent {
+                    actix_ws::AggregatedMessage::Binary(bytes) => {
+                        if let Some(ref handler) = on_message {
+                            match state_clone.vm_tx.try_send(VmWork::WsEvent {
                                 handler_name: handler.clone(),
                                 ctx: WsEventContext {
                                     client_id: client_id_clone.clone(),
                                     event_type: "message".to_string(),
                                     message: String::new(),
                                     is_binary: true,
-                                    binary_data: data.to_vec(),
+                                    binary_data: bytes.to_vec(),
                                     path: ws_path_clone.clone(),
                                     params: ws_params_clone.clone(),
                                 },
-                                done_tx,
-                            })
-                            .await;
-                        let _ = done_rx.await;
+                                done_tx: None,
+                            }) {
+                                Ok(_) => {}
+                                Err(_) => {
+                                    eprintln!("[WS] VM channel full, dropping message event");
+                                }
+                            }
+                        }
+                        if let Some(ref mut iv) = rate_interval {
+                            iv.tick().await;
+                        }
                     }
+                    actix_ws::AggregatedMessage::Close(_) => break,
+                    actix_ws::AggregatedMessage::Ping(bytes) => {
+                        let _ = reader_tx.send(WsOutMessage::Pong(bytes)).await;
+                    }
+                    actix_ws::AggregatedMessage::Pong(_) => continue,
+                },
+                Err(e) => {
+                    eprintln!("[bolt] WS protocol error: {:?}", e);
+                    break;
                 }
-                actix_ws::Message::Close(_) => break,
-                _ => {}
+            }
+        }
+
+        if let Some((_, ip)) = state_clone.ws_client_ips.remove(&client_id_clone) {
+            state_clone
+                .ws_connection_count
+                .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+            if let Some(mut count) = state_clone.ws_per_ip_count.get_mut(&ip) {
+                *count = count.saturating_sub(1);
+                if *count == 0 {
+                    drop(count);
+                    state_clone.ws_per_ip_count.remove(&ip);
+                }
             }
         }
 
@@ -243,7 +297,7 @@ pub(crate) async fn handle_websocket(
                         path: ws_path_clone.clone(),
                         params: ws_params_clone.clone(),
                     },
-                    done_tx,
+                    done_tx: Some(done_tx),
                 })
                 .await;
             let _ = done_rx.await;
@@ -546,7 +600,20 @@ ring_func!(bolt_ws_close_client, |p| {
         let server = &*(ptr as *const HttpServer);
         if let Some((_, tx)) = server.ws_clients.remove(client_id) {
             let _ = tx.try_send(WsOutMessage::Close);
-            // clean up rooms
+
+            if let Some((_, ip)) = server.ws_client_ips.remove(client_id) {
+                server
+                    .ws_connection_count
+                    .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+                if let Some(mut count) = server.ws_per_ip_count.get_mut(&ip) {
+                    *count = count.saturating_sub(1);
+                    if *count == 0 {
+                        drop(count);
+                        server.ws_per_ip_count.remove(&ip);
+                    }
+                }
+            }
+
             if let Some(client_room_entry) = server.ws_client_rooms.remove(client_id) {
                 let client_rooms = client_room_entry.1;
                 for room in client_rooms {
@@ -821,4 +888,43 @@ ring_func!(bolt_ws_connection_count, |p| {
         let count = server.ws_clients.len();
         ring_ret_number!(p, count as f64);
     }
+});
+
+ring_func!(bolt_ws_message_rate_limit, |p| {
+    ring_check_paracount!(p, 2);
+    ring_check_cpointer!(p, 1);
+    ring_check_number!(p, 2);
+
+    let ptr = ring_api_getcpointer(p, 1, HTTP_SERVER_TYPE);
+    if ptr.is_null() {
+        ring_error!(p, "Invalid HTTP server");
+        return;
+    }
+
+    let rate = ring_get_number!(p, 2) as u64;
+
+    unsafe {
+        let server = &mut *(ptr as *mut HttpServer);
+        server.ws_message_rate_limit = rate;
+    }
+
+    ring_ret_number!(p, 1.0);
+});
+
+ring_func!(bolt_ws_event_abort, |p| {
+    ring_check_paracount!(p, 1);
+    ring_check_cpointer!(p, 1);
+
+    let ptr = ring_api_getcpointer(p, 1, HTTP_SERVER_TYPE);
+    if ptr.is_null() {
+        ring_error!(p, "Invalid HTTP server");
+        return;
+    }
+
+    unsafe {
+        let server = &*(ptr as *const HttpServer);
+        *server.ws_event_aborted.lock() = true;
+    }
+
+    ring_ret_number!(p, 1.0);
 });
