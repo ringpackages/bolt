@@ -51,10 +51,17 @@ contentType = $bolt.header("Content-Type")
 ```
 
 ### $bolt.body()
-Get raw request body as string.
+Get raw request body as string (lossy UTF-8 — binary bytes replaced with U+FFFD).
 
 ```ring
 raw = $bolt.body()
+```
+
+### $bolt.bodyBase64()
+Get raw request body as base64-encoded string (binary-safe).
+
+```ring
+encoded = $bolt.bodyBase64()
 ```
 
 ### $bolt.jsonBody()
