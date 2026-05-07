@@ -12,6 +12,11 @@
 
 ---
 
+> [!NOTE]
+> Bolt is currently in the final stages of development.
+
+---
+
 ## Overview
 
 Bolt brings modern web development to Ring. It pairs an **Express.js-like DSL** with a **Rust-powered HTTP engine**, giving you a framework that is both approachable and fast. Write routes in Ring, run them on a Rust async runtime.
