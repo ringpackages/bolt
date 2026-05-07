@@ -593,10 +593,17 @@ class Bolt {
         return bolt_req_header(pHandle, cName)
     }
 
-    /// @brief Gets the raw request body as a string.
+    /// @brief Gets the raw request body as a string (lossy UTF-8).
+    /// @details Binary bytes are replaced with U+FFFD. For binary-safe access, use bodyBase64().
     /// @return Body string.
     func body() {
         return bolt_req_body(pHandle)
+    }
+
+    /// @brief Gets the raw request body as a base64-encoded string (binary-safe).
+    /// @return Base64-encoded body string.
+    func bodyBase64() {
+        return bolt_req_body_base64(pHandle)
     }
 
     /// @brief Gets the request body parsed as JSON.
