@@ -12,10 +12,17 @@ m = $bolt.method()  # "GET", "POST", etc.
 ```
 
 ### $bolt.path()
-Get request path.
+Get request path (route pattern).
 
 ```ring
-p = $bolt.path()  # "/users/123"
+p = $bolt.path()  # "/users/:id" (route pattern, not actual URI)
+```
+
+### $bolt.uri()
+Get raw request URI (actual path including query string).
+
+```ring
+u = $bolt.uri()  # "/users/123?tab=profile"
 ```
 
 ### $bolt.param(cName)
