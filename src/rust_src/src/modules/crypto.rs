@@ -4,6 +4,7 @@
 
 //! Encryption/HMAC — AES-GCM and HMAC-SHA256
 
+use aes_gcm::aead::generic_array::typenum::U12;
 use aes_gcm::aead::rand_core::RngCore;
 use aes_gcm::aead::{Aead, KeyInit, OsRng};
 use aes_gcm::{Aes256Gcm, Key, Nonce};
@@ -30,12 +31,12 @@ ring_func!(bolt_aes_encrypt, |p| {
         key_bytes.copy_from_slice(&hash);
     }
 
-    let key = Key::<Aes256Gcm>::from_slice(&key_bytes);
+    let key = <&Key<Aes256Gcm>>::from(&key_bytes);
     let cipher = Aes256Gcm::new(key);
 
     let mut nonce_bytes = [0u8; 12];
     OsRng.fill_bytes(&mut nonce_bytes);
-    let nonce = Nonce::from_slice(&nonce_bytes);
+    let nonce = <&Nonce<U12>>::from(&nonce_bytes);
 
     match cipher.encrypt(nonce, plaintext.as_bytes().as_ref()) {
         Ok(ciphertext) => {
@@ -84,9 +85,9 @@ ring_func!(bolt_aes_decrypt, |p| {
     }
 
     let (nonce_bytes, ciphertext) = combined.split_at(12);
-    let key = Key::<Aes256Gcm>::from_slice(&key_bytes);
+    let key = <&Key<Aes256Gcm>>::from(&key_bytes);
     let cipher = Aes256Gcm::new(key);
-    let nonce = Nonce::from_slice(nonce_bytes);
+    let nonce = <&Nonce<U12>>::from(nonce_bytes);
 
     match cipher.decrypt(nonce, ciphertext.as_ref()) {
         Ok(plaintext) => {

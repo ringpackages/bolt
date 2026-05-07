@@ -4073,6 +4073,8 @@ mod tests {
             ws_client_ips: Arc::new(DashMap::new()),
             ws_max_connections: 1000,
             ws_max_per_ip: 10,
+            ws_message_rate_limit: 100,
+            proxy_whitelist: Vec::new(),
         }
     }
 
