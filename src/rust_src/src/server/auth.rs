@@ -15,6 +15,57 @@ use crate::HTTP_SERVER_TYPE;
 // CSRF
 // ========================================
 
+pub fn verify_csrf_token(token: &str, session_id: &str, secret: &str) -> bool {
+    if token.is_empty() || secret.is_empty() || session_id.is_empty() {
+        return false;
+    }
+
+    let last_dot = match token.rfind('.') {
+        Some(pos) => pos,
+        None => return false,
+    };
+    let provided_sig = &token[last_dot + 1..];
+    let payload = &token[..last_dot];
+
+    if provided_sig.len() != 64 {
+        return false;
+    }
+
+    let payload_dot = match payload.rfind('.') {
+        Some(pos) => pos,
+        None => return false,
+    };
+    let token_session_id = &payload[..payload_dot];
+    let timestamp: u64 = match payload[payload_dot + 1..].parse() {
+        Ok(t) => t,
+        Err(_) => return false,
+    };
+
+    if token_session_id != session_id {
+        return false;
+    }
+
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    if now.saturating_sub(timestamp) > 3600 {
+        return false;
+    }
+
+    type HmacSha256 = hmac::Hmac<sha2::Sha256>;
+    use hmac::Mac;
+    let mut mac = HmacSha256::new_from_slice(secret.as_bytes()).unwrap();
+    mac.update(payload.as_bytes());
+    let sig = hex::encode(mac.finalize().into_bytes());
+
+    if provided_sig.len() != sig.len() {
+        return false;
+    }
+    use subtle::ConstantTimeEq;
+    provided_sig.as_bytes().ct_eq(sig.as_bytes()).into()
+}
+
 /// bolt_enable_csrf(server, secret) → enable CSRF protection
 ring_func!(bolt_enable_csrf, |p| {
     ring_check_paracount!(p, 2);
@@ -31,6 +82,31 @@ ring_func!(bolt_enable_csrf, |p| {
     unsafe {
         let server = &mut *(ptr as *mut HttpServer);
         server.csrf_secret = Some(secret.to_string());
+    }
+
+    ring_ret_number!(p, 1.0);
+});
+
+/// bolt_csrf_auto_verify(server) → enable automatic CSRF verification for state-changing methods
+ring_func!(bolt_csrf_auto_verify, |p| {
+    ring_check_paracount!(p, 1);
+    ring_check_cpointer!(p, 1);
+
+    let ptr = ring_api_getcpointer(p, 1, HTTP_SERVER_TYPE);
+    if ptr.is_null() {
+        return;
+    }
+
+    unsafe {
+        let server = &mut *(ptr as *mut HttpServer);
+        if server.csrf_secret.is_none() {
+            ring_error!(
+                p,
+                "csrf_auto_verify: call enableCsrf() first to set a secret"
+            );
+            return;
+        }
+        server.config.csrf_auto_verify = true;
     }
 
     ring_ret_number!(p, 1.0);
@@ -77,14 +153,32 @@ ring_func!(bolt_csrf_token, |p| {
             let guard = server.current_request.lock();
             guard
                 .as_ref()
-                .map(|ctx| ctx.cookies.contains_key("BOLTSESSION"))
+                .map(|ctx| {
+                    ctx.cookies.contains_key("BOLTSESSION")
+                        || ctx.cookies.contains_key("__Host-BOLTSESSION")
+                })
                 .unwrap_or(false)
         };
         if !has_session_cookie {
-            let cookie_val = format!("BOLTSESSION={}; Path=/; HttpOnly", session_id);
+            let signed_id =
+                crate::server::sessions::sign_session_id(&session_id, &server.session_secret);
+            let (cookie_name, secure_flag) =
+                if server.tls.enabled || server.config.force_secure_cookies {
+                    ("__Host-BOLTSESSION", "; Secure")
+                } else {
+                    ("BOLTSESSION", "")
+                };
+            let cookie_val = format!(
+                "{}={}; Path=/; HttpOnly; SameSite=Lax{}",
+                cookie_name, signed_id, secure_flag
+            );
             let mut response = server.current_response.lock();
             if let Some(ref mut res) = *response {
-                if !res.cookies.iter().any(|c| c.starts_with("BOLTSESSION=")) {
+                if !res
+                    .cookies
+                    .iter()
+                    .any(|c| c.starts_with("BOLTSESSION=") || c.starts_with("__Host-BOLTSESSION="))
+                {
                     res.cookies.push(cookie_val);
                 }
             } else {
@@ -128,92 +222,23 @@ ring_func!(bolt_verify_csrf, |p| {
     }
 
     let token = ring_get_string!(p, 2);
-    if token.is_empty() {
-        ring_ret_number!(p, 0.0);
-        return;
-    }
 
-    let secret = unsafe {
+    let (secret, session_id) = unsafe {
         let server = &*(ptr as *const HttpServer);
-        server.csrf_secret.clone().unwrap_or_default()
-    };
-    if secret.is_empty() {
-        ring_ret_number!(p, 0.0);
-        return;
-    }
-
-    // Parse: session_id.timestamp.hmac(sha256_hex)
-    let last_dot = match token.rfind('.') {
-        Some(pos) => pos,
-        None => {
-            ring_ret_number!(p, 0.0);
-            return;
-        }
-    };
-    let provided_sig = &token[last_dot + 1..];
-    let payload = &token[..last_dot];
-
-    if provided_sig.len() != 64 {
-        ring_ret_number!(p, 0.0);
-        return;
-    }
-
-    let payload_dot = match payload.rfind('.') {
-        Some(pos) => pos,
-        None => {
-            ring_ret_number!(p, 0.0);
-            return;
-        }
-    };
-    let token_session_id = &payload[..payload_dot];
-    let timestamp: u64 = match payload[payload_dot + 1..].parse() {
-        Ok(t) => t,
-        Err(_) => {
-            ring_ret_number!(p, 0.0);
-            return;
-        }
-    };
-
-    // Verify session binding
-    let current_session_id = unsafe {
-        let server = &*(ptr as *mut HttpServer);
-        let guard = server.current_request.lock();
-        guard
+        let session_id = server
+            .current_request
+            .lock()
             .as_ref()
             .map(|ctx| ctx.session_id.clone())
-            .unwrap_or_default()
+            .unwrap_or_default();
+        (server.csrf_secret.clone().unwrap_or_default(), session_id)
     };
 
-    if current_session_id.is_empty() || token_session_id != current_session_id {
+    if verify_csrf_token(token, &session_id, &secret) {
+        ring_ret_number!(p, 1.0);
+    } else {
         ring_ret_number!(p, 0.0);
-        return;
     }
-
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
-    if now.saturating_sub(timestamp) > 3600 {
-        ring_ret_number!(p, 0.0);
-        return;
-    }
-
-    type HmacSha256 = hmac::Hmac<sha2::Sha256>;
-    use hmac::Mac;
-    let mut mac = HmacSha256::new_from_slice(secret.as_bytes()).unwrap();
-    mac.update(payload.as_bytes());
-    let sig = hex::encode(mac.finalize().into_bytes());
-    let expected_sig = &sig;
-
-    if provided_sig.len() != expected_sig.len() {
-        ring_ret_number!(p, 0.0);
-        return;
-    }
-    let mut diff: u8 = 0;
-    for (a, b) in provided_sig.bytes().zip(expected_sig.bytes()) {
-        diff |= a ^ b;
-    }
-    ring_ret_number!(p, if diff == 0 { 1.0 } else { 0.0 });
 });
 
 // ========================================

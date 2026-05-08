@@ -5,18 +5,23 @@
 //! Rate Limiting (Simple In-Memory)
 
 use ring_lang_rs::*;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::HTTP_SERVER_TYPE;
 
-use super::HttpServer;
+use super::{HttpServer, resolve_client_ip};
 
-static RATE_LIMIT_REQUESTS: AtomicU64 = AtomicU64::new(0);
+struct IpRateEntry {
+    requests: AtomicU64,
+    window_start: AtomicU64,
+}
+
 static RATE_LIMIT_MAX: AtomicU64 = AtomicU64::new(100);
 static RATE_LIMIT_WINDOW: AtomicU64 = AtomicU64::new(60);
-static RATE_LIMIT_WINDOW_START: AtomicU64 = AtomicU64::new(0);
-static RATE_LIMIT_ENABLED: std::sync::atomic::AtomicBool =
-    std::sync::atomic::AtomicBool::new(false);
+static RATE_LIMIT_ENABLED: AtomicBool = AtomicBool::new(false);
+static RATE_LIMIT_IP_MAP: std::sync::LazyLock<dashmap::DashMap<String, IpRateEntry>> =
+    std::sync::LazyLock::new(|| dashmap::DashMap::new());
 
 /// bolt_rate_limit(max_requests, window_seconds) → configure rate limiting
 ring_func!(bolt_rate_limit, |p| {
@@ -44,16 +49,13 @@ ring_func!(bolt_rate_limit, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_check_rate_limit() → 1 if allowed, 0 if rate limited
+/// bolt_check_rate_limit([server]) → 1 if allowed, 0 if rate limited
 ring_func!(bolt_check_rate_limit, |p| {
-    ring_check_paracount!(p, 0);
-
     if !RATE_LIMIT_ENABLED.load(Ordering::SeqCst) {
         ring_ret_number!(p, 1.0);
         return;
     }
 
-    use std::time::{SystemTime, UNIX_EPOCH};
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -62,29 +64,60 @@ ring_func!(bolt_check_rate_limit, |p| {
     let window = RATE_LIMIT_WINDOW.load(Ordering::SeqCst);
     let max = RATE_LIMIT_MAX.load(Ordering::SeqCst);
 
+    let client_ip = if ring_api_paracount(p) >= 1 {
+        let ptr = ring_api_getcpointer(p, 1, HTTP_SERVER_TYPE);
+        if !ptr.is_null() {
+            unsafe {
+                let server = &*(ptr as *const HttpServer);
+                let guard = server.current_request.lock();
+                if let Some(ref ctx) = *guard {
+                    let proxy_whitelist = &server.config.proxy_whitelist;
+                    resolve_client_ip(&ctx.peer_addr, &ctx.headers, proxy_whitelist)
+                } else {
+                    String::new()
+                }
+            }
+        } else {
+            String::new()
+        }
+    } else {
+        String::new()
+    };
+
+    let ip_key = if client_ip.is_empty() {
+        "unknown".to_string()
+    } else {
+        client_ip
+    };
+
+    let entry = (*RATE_LIMIT_IP_MAP)
+        .entry(ip_key.clone())
+        .or_insert_with(|| IpRateEntry {
+            requests: AtomicU64::new(0),
+            window_start: AtomicU64::new(now),
+        });
+
     loop {
-        let window_start = RATE_LIMIT_WINDOW_START.load(Ordering::SeqCst);
+        let window_start = entry.window_start.load(Ordering::SeqCst);
 
         if now.saturating_sub(window_start) >= window {
-            // Try to atomically claim the reset
-            match RATE_LIMIT_WINDOW_START.compare_exchange(
+            match entry.window_start.compare_exchange(
                 window_start,
                 now,
                 Ordering::SeqCst,
                 Ordering::SeqCst,
             ) {
                 Ok(_) => {
-                    // We won the race — reset counter and allow
-                    RATE_LIMIT_REQUESTS.store(1, Ordering::SeqCst);
+                    entry.requests.store(1, Ordering::SeqCst);
                     ring_ret_number!(p, 1.0);
                     return;
                 }
-                Err(_) => continue, // Another thread reset, re-read
+                Err(_) => continue,
             }
         }
 
-        // Window is still valid, try to increment
-        let requests = RATE_LIMIT_REQUESTS
+        let requests = entry
+            .requests
             .fetch_add(1, Ordering::SeqCst)
             .saturating_add(1);
 
@@ -96,6 +129,19 @@ ring_func!(bolt_check_rate_limit, |p| {
         return;
     }
 });
+
+/// Clean up expired entries from the per-IP rate limit map
+pub fn rate_limit_cleanup_ip_map() {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    let window = RATE_LIMIT_WINDOW.load(Ordering::SeqCst);
+    (*RATE_LIMIT_IP_MAP).retain(|_, entry| {
+        let window_start = entry.window_start.load(Ordering::SeqCst);
+        now.saturating_sub(window_start) < window
+    });
+}
 
 /// bolt_route_rate_limit(server, handler_name, max_requests, window_seconds) → set per-route rate limit
 ring_func!(bolt_route_rate_limit, |p| {
@@ -168,11 +214,15 @@ mod tests {
             .unwrap()
             .as_secs();
 
-        RATE_LIMIT_WINDOW_START.store(now - 100, Ordering::SeqCst);
+        let _entry = RATE_LIMIT_IP_MAP
+            .entry("test".to_string())
+            .or_insert_with(|| IpRateEntry {
+                requests: AtomicU64::new(0),
+                window_start: AtomicU64::new(now - 100),
+            });
         RATE_LIMIT_WINDOW.store(60, Ordering::SeqCst);
-        let window_start = RATE_LIMIT_WINDOW_START.load(Ordering::SeqCst);
         let window = RATE_LIMIT_WINDOW.load(Ordering::SeqCst);
-        assert!(now - window_start >= window);
+        assert!(now - (now - 100) >= window);
     }
 
     #[test]

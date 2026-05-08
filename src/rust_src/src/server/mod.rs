@@ -146,8 +146,8 @@ pub struct RequestContext {
     pub path: String,
     pub uri: String,
     pub params: HashMap<String, String>,
-    pub query: HashMap<String, String>,
-    pub form: HashMap<String, String>,
+    pub query: HashMap<String, Vec<String>>,
+    pub form: HashMap<String, Vec<String>>,
     pub headers: HashMap<String, String>,
     pub cookies: HashMap<String, String>,
     pub body: Vec<u8>,
@@ -252,6 +252,7 @@ pub struct ServerConfig {
     pub force_secure_cookies: bool,
     pub max_multipart_fields: usize,
     pub max_multipart_field_size: usize,
+    pub csrf_auto_verify: bool,
 }
 
 impl Default for ServerConfig {
@@ -269,6 +270,7 @@ impl Default for ServerConfig {
             force_secure_cookies: false,
             max_multipart_fields: 1000,
             max_multipart_field_size: 10 * 1024 * 1024,
+            csrf_auto_verify: false,
         }
     }
 }
@@ -342,6 +344,7 @@ pub struct HttpServer {
     pub ws_message_rate_limit: u64,
     pub ws_event_aborted: Arc<Mutex<bool>>,
     pub ws_dropped_count: Arc<std::sync::atomic::AtomicU64>,
+    pub sse_max_subscribers: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -415,6 +418,7 @@ impl HttpServer {
             ws_message_rate_limit: 100,
             ws_event_aborted: Arc::new(Mutex::new(false)),
             ws_dropped_count: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            sse_max_subscribers: 1000,
         };
         server.max_multipart_fields = server.config.max_multipart_fields;
         server.max_multipart_field_size = server.config.max_multipart_field_size;
@@ -530,6 +534,8 @@ pub(crate) struct AppState {
     regex_cache: Arc<Mutex<HashMap<String, regex::Regex>>>,
     body_size_limit: Arc<std::sync::atomic::AtomicUsize>,
     session_secret: String,
+    csrf_secret: Option<String>,
+    csrf_auto_verify: bool,
     max_multipart_fields: usize,
     max_multipart_field_size: usize,
     ws_connection_count: Arc<std::sync::atomic::AtomicUsize>,
@@ -540,6 +546,8 @@ pub(crate) struct AppState {
     ws_message_rate_limit: u64,
     sse_routes: Vec<SseRouteDefinition>,
     ws_dropped_count: Arc<std::sync::atomic::AtomicU64>,
+    sse_subscriber_counts: Arc<DashMap<String, usize>>,
+    sse_max_subscribers: usize,
 }
 
 /// Check route constraints (standalone function for AppState)
@@ -598,6 +606,38 @@ pub fn convert_path_params(path: &str) -> String {
     }
 
     result
+}
+
+fn check_openapi_ip(req: &HttpRequest, state: &AppState) -> Option<HttpResponse> {
+    let headers: HashMap<String, String> = req
+        .headers()
+        .iter()
+        .map(|(k, v)| (k.as_str().to_string(), v.to_str().unwrap_or("").to_string()))
+        .collect();
+    let peer_addr = req
+        .peer_addr()
+        .map(|a| a.ip().to_string())
+        .unwrap_or_default();
+    let client_ip_str = resolve_client_ip(&peer_addr, &headers, &state.proxy_whitelist);
+
+    if state.ip_whitelist.is_empty() && state.ip_blacklist.is_empty() {
+        return None;
+    }
+
+    let parsed_ip = if client_ip_str == "::1" {
+        std::net::IpAddr::from_str("127.0.0.1")
+            .unwrap_or_else(|_| std::net::IpAddr::from_str("0.0.0.0").unwrap())
+    } else {
+        client_ip_str
+            .parse::<std::net::IpAddr>()
+            .unwrap_or_else(|_| std::net::IpAddr::from_str("0.0.0.0").unwrap())
+    };
+
+    if !is_ip_allowed(parsed_ip, &state.ip_whitelist, &state.ip_blacklist) {
+        return Some(HttpResponse::Forbidden().body("Forbidden"));
+    }
+
+    None
 }
 
 fn resolve_client_ip(
@@ -785,6 +825,8 @@ ring_func!(bolt_listen, |p| {
         let ws_message_rate_limit = server.ws_message_rate_limit;
         let ws_event_aborted = server.ws_event_aborted.clone();
         let ws_dropped_count = server.ws_dropped_count.clone();
+        let sse_subscriber_counts = Arc::new(DashMap::<String, usize>::new());
+        let sse_max_subscribers = server.sse_max_subscribers;
 
         let ip_whitelist = server.config.ip_whitelist.clone();
         let ip_blacklist = server.config.ip_blacklist.clone();
@@ -852,6 +894,8 @@ ring_func!(bolt_listen, |p| {
                 server.config.proxy_whitelist.clone(),
                 request_timeout_ms,
                 server.session_secret.clone(),
+                server.csrf_secret.clone(),
+                server.config.csrf_auto_verify,
                 server.max_multipart_fields,
                 server.max_multipart_field_size,
                 ws_connection_count,
@@ -862,6 +906,8 @@ ring_func!(bolt_listen, |p| {
                 ws_message_rate_limit,
                 ws_event_aborted,
                 ws_dropped_count,
+                sse_subscriber_counts,
+                sse_max_subscribers,
             )
             .await
         });
@@ -912,6 +958,8 @@ async fn run_server(
     proxy_whitelist: Vec<String>,
     request_timeout_ms: u64,
     session_secret: String,
+    csrf_secret: Option<String>,
+    csrf_auto_verify: bool,
     max_multipart_fields: usize,
     max_multipart_field_size: usize,
     ws_connection_count: Arc<std::sync::atomic::AtomicUsize>,
@@ -922,6 +970,8 @@ async fn run_server(
     ws_message_rate_limit: u64,
     ws_event_aborted: Arc<Mutex<bool>>,
     ws_dropped_count: Arc<std::sync::atomic::AtomicU64>,
+    sse_subscriber_counts: Arc<DashMap<String, usize>>,
+    sse_max_subscribers: usize,
 ) -> Result<(), std::io::Error> {
     let openapi_spec_clone = openapi_spec.clone();
     let (sse_shutdown_tx, _) = tokio::sync::broadcast::channel::<()>(1);
@@ -1172,6 +1222,8 @@ async fn run_server(
         regex_cache: Arc::new(Mutex::new(HashMap::new())),
         body_size_limit: body_size_limit.clone(),
         session_secret,
+        csrf_secret,
+        csrf_auto_verify,
         max_multipart_fields,
         max_multipart_field_size,
         ws_connection_count,
@@ -1182,8 +1234,11 @@ async fn run_server(
         ws_message_rate_limit,
         sse_routes: sse_routes.clone(),
         ws_dropped_count,
+        sse_subscriber_counts,
+        sse_max_subscribers,
     };
 
+    const MAX_LIMITER_KEYS: usize = 10_000;
     let limiters_clone = state.route_limiters.clone();
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(300));
@@ -1191,7 +1246,16 @@ async fn run_server(
             interval.tick().await;
             for route in limiters_clone.iter() {
                 route.value().retain_recent();
+                if route.value().len() > MAX_LIMITER_KEYS {
+                    eprintln!(
+                        "[bolt] Rate limiter for '{}' has {} keys (cap {}), consider tightening window",
+                        route.key(),
+                        route.value().len(),
+                        MAX_LIMITER_KEYS
+                    );
+                }
             }
+            rate_limit::rate_limit_cleanup_ip_map();
         }
     });
 
@@ -1354,9 +1418,14 @@ async fn run_server(
             let spec_for_json = spec.clone();
             app = app.route(
                 "/openapi.json",
-                web::get().to(move || {
+                web::get().to(move |req: HttpRequest, state: web::Data<AppState>| {
                     let s = spec_for_json.clone();
-                    async move { HttpResponse::Ok().content_type("application/json").body(s) }
+                    async move {
+                        if let Some(resp) = check_openapi_ip(&req, &state) {
+                            return resp;
+                        }
+                        HttpResponse::Ok().content_type("application/json").body(s)
+                    }
                 }),
             );
 
@@ -1364,11 +1433,16 @@ async fn run_server(
                 serde_json::from_str(spec).unwrap_or_default();
             app = app.route(
                 "/docs",
-                web::get().to(|| async {
-                    HttpResponse::Found()
-                        .insert_header(("location", "/docs/"))
-                        .finish()
-                }),
+                web::get().to(
+                    move |req: HttpRequest, state: web::Data<AppState>| async move {
+                        if let Some(resp) = check_openapi_ip(&req, &state) {
+                            return resp;
+                        }
+                        HttpResponse::Found()
+                            .insert_header(("location", "/docs/"))
+                            .finish()
+                    },
+                ),
             );
             app = app.service(
                 utoipa_swagger_ui::SwaggerUi::new("/docs/{_:.*}").url("/openapi.json", spec_parsed),
@@ -1615,7 +1689,7 @@ async fn run_server(
 async fn handle_request(
     req: HttpRequest,
     state: web::Data<AppState>,
-    query: web::Query<HashMap<String, String>>,
+    _query: web::Query<HashMap<String, String>>,
     mut payload: web::Payload,
     handler_name: String,
 ) -> HttpResponse {
@@ -1666,7 +1740,7 @@ async fn handle_request(
 
     let (body_bytes, files, form) = if is_multipart {
         let mut files = Vec::new();
-        let mut form = HashMap::new();
+        let mut form: HashMap<String, Vec<String>> = HashMap::new();
         let mut multipart = actix_multipart::Multipart::new(req.headers(), payload);
         let mut total_size = 0usize;
         let mut field_count = 0usize;
@@ -1737,7 +1811,7 @@ async fn handle_request(
                 });
             } else if !name.is_empty() {
                 let value_str = String::from_utf8_lossy(&data).to_string();
-                form.insert(name, value_str);
+                form.entry(name).or_default().push(value_str);
             }
         }
         (Vec::new(), files, form)
@@ -1764,10 +1838,13 @@ async fn handle_request(
             body.extend_from_slice(&chunk);
         }
         let body_vec = body.to_vec();
-        let form = if is_form_urlencoded {
+        let form: HashMap<String, Vec<String>> = if is_form_urlencoded {
             form_urlencoded::parse(&body_vec)
                 .map(|(k, v)| (k.to_string(), v.to_string()))
-                .collect()
+                .fold(HashMap::new(), |mut map, (k, v)| {
+                    map.entry(k).or_default().push(v);
+                    map
+                })
         } else {
             HashMap::new()
         };
@@ -1824,7 +1901,7 @@ async fn handle_request(
                     .insert_header(("X-Request-Id", request_id_str.clone()))
                     .body("Too Many Requests");
             }
-        } // skip rate limiting when client IP is unknown
+        }
     }
 
     // Read and verify signed session ID to prevent fixation attacks
@@ -1844,7 +1921,47 @@ async fn handle_request(
     let method = req.method().to_string();
     let matched_path = req.match_pattern().unwrap_or_default();
 
-    let query_inner = query.into_inner();
+    if state.csrf_auto_verify {
+        if let Some(ref secret) = state.csrf_secret {
+            let is_state_changing = matches!(method.as_str(), "POST" | "PUT" | "DELETE" | "PATCH");
+            if is_state_changing {
+                let csrf_token = {
+                    let from_header = headers.get("x-csrf-token").cloned();
+                    let from_form = form.get("_csrf").and_then(|v| v.first()).cloned();
+                    let from_query = {
+                        let qs = req.query_string();
+                        if qs.is_empty() {
+                            None
+                        } else {
+                            form_urlencoded::parse(qs.as_bytes())
+                                .find(|(k, _)| k == "_csrf")
+                                .map(|(_, v)| v.to_string())
+                        }
+                    };
+                    from_header.or(from_form).or(from_query).unwrap_or_default()
+                };
+                if !crate::server::auth::verify_csrf_token(&csrf_token, &session_id, secret) {
+                    return HttpResponse::Forbidden()
+                        .insert_header(("X-Request-Id", request_id_str.clone()))
+                        .body("CSRF token verification failed");
+                }
+            }
+        }
+    }
+
+    let query_inner: HashMap<String, Vec<String>> = {
+        let qs = req.query_string().to_string();
+        if qs.is_empty() {
+            HashMap::new()
+        } else {
+            form_urlencoded::parse(qs.as_bytes())
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .fold(HashMap::new(), |mut map, (k, v)| {
+                    map.entry(k).or_default().push(v);
+                    map
+                })
+        }
+    };
     let peer_addr = req
         .peer_addr()
         .map(|addr| addr.ip().to_string())
@@ -2145,11 +2262,44 @@ ring_func!(bolt_req_query, |p| {
         let server = &*(ptr as *const HttpServer);
         let guard = server.current_request.lock();
         if let Some(ref ctx) = *guard {
-            let value = ctx.query.get(name).map(|s| s.as_str()).unwrap_or("");
+            let value = ctx
+                .query
+                .get(name)
+                .and_then(|vals| vals.first())
+                .map(|s| s.as_str())
+                .unwrap_or("");
             ring_ret_string!(p, value);
         } else {
             ring_ret_string!(p, "");
         }
+    }
+});
+
+/// bolt_req_query_all(server, name) → list of all values for query param
+ring_func!(bolt_req_query_all, |p| {
+    ring_check_paracount!(p, 2);
+    ring_check_cpointer!(p, 1);
+    ring_check_string!(p, 2);
+
+    let ptr = ring_api_getcpointer(p, 1, HTTP_SERVER_TYPE);
+    if ptr.is_null() {
+        return;
+    }
+
+    let name = ring_get_string!(p, 2);
+
+    unsafe {
+        let server = &*(ptr as *const HttpServer);
+        let guard = server.current_request.lock();
+        let list = ring_new_list!(p);
+        if let Some(ref ctx) = *guard {
+            if let Some(vals) = ctx.query.get(name) {
+                for v in vals {
+                    ring_list_addstring_str(list, v);
+                }
+            }
+        }
+        ring_ret_list!(p, list);
     }
 });
 
@@ -2241,11 +2391,44 @@ ring_func!(bolt_req_form_field, |p| {
         let server = &*(ptr as *const HttpServer);
         let guard = server.current_request.lock();
         if let Some(ref ctx) = *guard {
-            let value = ctx.form.get(name).map(|s| s.as_str()).unwrap_or("");
+            let value = ctx
+                .form
+                .get(name)
+                .and_then(|vals| vals.first())
+                .map(|s| s.as_str())
+                .unwrap_or("");
             ring_ret_string!(p, value);
         } else {
             ring_ret_string!(p, "");
         }
+    }
+});
+
+/// bolt_req_form_field_all(server, name) → list of all values for form field
+ring_func!(bolt_req_form_field_all, |p| {
+    ring_check_paracount!(p, 2);
+    ring_check_cpointer!(p, 1);
+    ring_check_string!(p, 2);
+
+    let ptr = ring_api_getcpointer(p, 1, HTTP_SERVER_TYPE);
+    if ptr.is_null() {
+        return;
+    }
+
+    let name = ring_get_string!(p, 2);
+
+    unsafe {
+        let server = &*(ptr as *const HttpServer);
+        let guard = server.current_request.lock();
+        let list = ring_new_list!(p);
+        if let Some(ref ctx) = *guard {
+            if let Some(vals) = ctx.form.get(name) {
+                for v in vals {
+                    ring_list_addstring_str(list, v);
+                }
+            }
+        }
+        ring_ret_list!(p, list);
     }
 });
 
@@ -3167,6 +3350,9 @@ ring_func!(bolt_validate_param, |p| {
     }
 });
 
+static VALIDATE_REGEX_CACHE: std::sync::OnceLock<std::sync::Mutex<HashMap<String, regex::Regex>>> =
+    std::sync::OnceLock::new();
+
 /// bolt_validate_regex(value, regex_pattern) → validate any string against regex
 ring_func!(bolt_validate_regex, |p| {
     ring_check_paracount!(p, 2);
@@ -3176,17 +3362,34 @@ ring_func!(bolt_validate_regex, |p| {
     let value = ring_get_string!(p, 1);
     let pattern = ring_get_string!(p, 2);
 
-    match regex::Regex::new(pattern) {
-        Ok(re) => {
-            if re.is_match(value) {
-                ring_ret_number!(p, 1.0);
-            } else {
-                ring_ret_number!(p, 0.0);
+    let cache = VALIDATE_REGEX_CACHE.get_or_init(|| std::sync::Mutex::new(HashMap::new()));
+    let re = {
+        let mut guard = cache.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(cached) = guard.get(pattern) {
+            cached.clone()
+        } else {
+            match regex::RegexBuilder::new(pattern)
+                .size_limit(1_000_000)
+                .dfa_size_limit(1_000_000)
+                .build()
+            {
+                Ok(re) => {
+                    let cloned = re.clone();
+                    guard.insert(pattern.to_string(), re);
+                    cloned
+                }
+                Err(_) => {
+                    ring_ret_number!(p, 0.0);
+                    return;
+                }
             }
         }
-        Err(_) => {
-            ring_ret_number!(p, 0.0);
-        }
+    };
+
+    if re.is_match(value) {
+        ring_ret_number!(p, 1.0);
+    } else {
+        ring_ret_number!(p, 0.0);
     }
 });
 

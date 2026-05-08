@@ -53,10 +53,12 @@ ring_libinit! {
     "bolt_req_uri" => bolt_req_uri,
     "bolt_req_param" => bolt_req_param,
     "bolt_req_query" => bolt_req_query,
+    "bolt_req_query_all" => bolt_req_query_all,
     "bolt_req_header" => bolt_req_header,
     "bolt_req_body" => bolt_req_body,
     "bolt_req_body_base64" => bolt_req_body_base64,
     "bolt_req_form_field" => bolt_req_form_field,
+    "bolt_req_form_field_all" => bolt_req_form_field_all,
     "bolt_req_client_ip" => bolt_req_client_ip,
     "bolt_req_handler" => bolt_req_handler,
     "bolt_req_cookie" => bolt_req_cookie,
@@ -180,6 +182,7 @@ ring_libinit! {
 
     // CSRF Protection
     "bolt_enable_csrf" => bolt_enable_csrf,
+    "bolt_csrf_auto_verify" => bolt_csrf_auto_verify,
     "bolt_csrf_token" => bolt_csrf_token,
     "bolt_verify_csrf" => bolt_verify_csrf,
 
@@ -197,6 +200,7 @@ ring_libinit! {
     "bolt_sse_broadcast" => bolt_sse_broadcast,
     "bolt_sse_broadcast_event" => bolt_sse_broadcast_event,
     "bolt_sse_filter_params" => bolt_sse_filter_params,
+    "bolt_sse_max_subscribers" => bolt_sse_max_subscribers,
 
     // Global Middleware
     "bolt_before" => bolt_before,

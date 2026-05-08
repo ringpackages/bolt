@@ -5,9 +5,11 @@
 //! Server-Sent Events (SSE)
 
 use actix_web::{HttpRequest, HttpResponse};
+use dashmap::DashMap;
 use futures_util::stream::Stream;
 use std::collections::HashMap;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Duration;
 use tokio_stream::wrappers::BroadcastStream;
@@ -23,6 +25,19 @@ pub(crate) async fn handle_sse(
     state: actix_web::web::Data<AppState>,
 ) -> HttpResponse {
     let path_str = req.match_pattern().unwrap_or_default();
+
+    let mut current_count = state
+        .sse_subscriber_counts
+        .entry(path_str.clone())
+        .or_insert(0);
+    if *current_count >= state.sse_max_subscribers {
+        drop(current_count);
+        return HttpResponse::ServiceUnavailable()
+            .insert_header(("Retry-After", "5"))
+            .body("SSE subscriber limit reached");
+    }
+    *current_count += 1;
+    drop(current_count);
 
     let filter_params = state
         .sse_routes
@@ -51,6 +66,9 @@ pub(crate) async fn handle_sse(
             interval: tokio::time::Interval,
             filter_params: bool,
             subscriber_params: HashMap<String, String>,
+            path: String,
+            subscriber_counts: Arc<DashMap<String, usize>>,
+            done: bool,
         }
 
         impl Stream for SseStream {
@@ -99,7 +117,10 @@ pub(crate) async fn handle_sse(
                             return Poll::Ready(Some(Ok(actix_web::web::Bytes::from(event_str))));
                         }
                         Poll::Ready(Some(Err(_))) => continue,
-                        Poll::Ready(None) => return Poll::Ready(None),
+                        Poll::Ready(None) => {
+                            self.done = true;
+                            return Poll::Ready(None);
+                        }
                         Poll::Pending => break,
                     }
                 }
@@ -113,11 +134,25 @@ pub(crate) async fn handle_sse(
             }
         }
 
+        impl Drop for SseStream {
+            fn drop(&mut self) {
+                if !self.done {
+                    self.done = true;
+                }
+                if let Some(mut count) = self.subscriber_counts.get_mut(&self.path) {
+                    *count = count.saturating_sub(1);
+                }
+            }
+        }
+
         let stream = SseStream {
             inner: BroadcastStream::new(rx),
             interval: tokio::time::interval(Duration::from_secs(15)),
             filter_params,
             subscriber_params,
+            path: path_str.clone(),
+            subscriber_counts: state.sse_subscriber_counts.clone(),
+            done: false,
         };
 
         HttpResponse::Ok()
@@ -322,4 +357,27 @@ ring_func!(bolt_sse_filter_params, |p| {
             ring_error!(p, "sse_filter_params: no SSE route found for path");
         }
     }
+});
+
+/// bolt_sse_max_subscribers(server, max) → set max concurrent SSE subscribers per route
+ring_func!(bolt_sse_max_subscribers, |p| {
+    ring_check_paracount!(p, 2);
+    ring_check_cpointer!(p, 1);
+    ring_check_number!(p, 2);
+
+    let ptr = ring_api_getcpointer(p, 1, HTTP_SERVER_TYPE);
+    if ptr.is_null() {
+        return;
+    }
+
+    let max = ring_get_number!(p, 2) as usize;
+
+    unsafe {
+        let server = &mut *(ptr as *mut HttpServer);
+        if max > 0 {
+            server.sse_max_subscribers = max;
+        }
+    }
+
+    ring_ret_number!(p, 1.0);
 });
