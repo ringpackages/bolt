@@ -581,9 +581,16 @@ class Bolt {
 
     /// @brief Gets a query string parameter value.
     /// @param cName Parameter name.
-    /// @return Parameter value string.
+    /// @return Parameter value string (first value if multi-valued).
     func query(cName) {
         return bolt_req_query(pHandle, cName)
+    }
+
+    /// @brief Gets all values for a query parameter (e.g. ?tag=rust&tag=web).
+    /// @param cName Parameter name.
+    /// @return List of all values for the parameter. Empty list if not found.
+    func queryAll(cName) {
+        return bolt_req_query_all(pHandle, cName)
     }
 
     /// @brief Gets a request header value.
@@ -1048,6 +1055,13 @@ class Bolt {
         bolt_enable_csrf(pHandle, cSecret)
     }
 
+    /// @brief Enables automatic CSRF token verification for state-changing methods (POST/PUT/DELETE/PATCH).
+    /// Requires enableCsrf() to be called first. Token is looked up from X-CSRF-Token header,
+    /// _csrf form field, or _csrf query parameter.
+    func csrfAutoVerify() {
+        bolt_csrf_auto_verify(pHandle)
+    }
+
     // ========================================
     // Health
     // ========================================
@@ -1154,6 +1168,13 @@ class Bolt {
     /// @param cPath SSE endpoint path to enable filtering on.
     func sseFilterParams(cPath) {
         bolt_sse_filter_params(pHandle, cPath)
+    }
+
+    /// @brief Sets the maximum concurrent SSE subscribers per route.
+    /// When the limit is reached, new subscribers receive 503 with Retry-After header.
+    /// @param nMax Maximum subscriber count (default: 1000).
+    func sseMaxSubscribers(nMax) {
+        bolt_sse_max_subscribers(pHandle, nMax)
     }
 
     // ========================================
@@ -1382,9 +1403,16 @@ class Bolt {
 
     /// @brief Gets a form field value from multipart form data.
     /// @param cName Field name.
-    /// @return Field value string.
+    /// @return Field value string (first value if multi-valued).
     func formField(cName) {
         return bolt_req_form_field(pHandle, cName)
+    }
+
+    /// @brief Gets all values for a form field (e.g. checkbox arrays).
+    /// @param cName Field name.
+    /// @return List of all values for the field. Empty list if not found.
+    func formFieldAll(cName) {
+        return bolt_req_form_field_all(pHandle, cName)
     }
 
     /// @brief Gets the unique request ID.
@@ -1514,10 +1542,10 @@ class Bolt {
         bolt_rate_limit(nMax, nWindow)
     }
 
-    /// @brief Checks if the current request exceeds the rate limit.
+    /// @brief Checks if the current request exceeds the per-IP rate limit.
     /// @return True (1) if allowed, false (0) if limited.
     func checkRateLimit() {
-        return bolt_check_rate_limit()
+        return bolt_check_rate_limit(pHandle)
     }
 
     /// @brief Validates a route parameter against a regex pattern.
