@@ -6,6 +6,8 @@ summary: "CSRF protection, rate limiting, IP filtering, and TLS"
 
 ### CSRF Protection
 
+Manual verification:
+
 ```ring
 new Bolt() {
     port = 3000
@@ -38,13 +40,33 @@ new Bolt() {
 }
 ```
 
+Automatic verification (all POST/PUT/DELETE/PATCH requests checked automatically):
+
+```ring
+new Bolt() {
+    port = 3000
+    
+    enableCsrf("csrf-secret-key")
+    csrfAutoVerify()
+    
+    @get("/csrf-token", func {
+        $bolt.json([:csrf_token = $bolt.csrfToken()])
+    })
+    
+    @post("/submit", func {
+        # CSRF already verified by auto-verify
+        $bolt.send("Success!")
+    })
+}
+```
+
 ### Rate Limiting
 
 ```ring
 new Bolt() {
     port = 3000
     
-    # Global: 100 requests per minute
+    # Per-IP: 100 requests per minute per client IP
     $bolt.rateLimit(100, 60)
     
     @before(func {

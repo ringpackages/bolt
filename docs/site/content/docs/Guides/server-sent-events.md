@@ -53,3 +53,17 @@ new Bolt() {
     })
 }
 ```
+
+### SSE Subscriber Limit
+
+Limit the number of concurrent subscribers per SSE route. When the limit is reached, new subscribers receive a 503 response with a `Retry-After` header.
+
+```ring
+new Bolt() {
+    port = 3000
+
+    sseMaxSubscribers(500)   # max 500 concurrent subscribers per route
+
+    @sse("/events")
+}
+```

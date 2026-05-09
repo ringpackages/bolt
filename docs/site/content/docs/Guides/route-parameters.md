@@ -79,3 +79,18 @@ whereAll([
 # /search?q=hello&page=2&limit=20
 # → {"query": "hello", "page": "2", "limit": "20"}
 ```
+
+### Multi-value Query Parameters
+
+When the same key appears multiple times (e.g., `?tag=rust&tag=web`), use `queryAll()` to get all values as a list:
+
+```ring
+@get("/search", func {
+    tags = $bolt.queryAll("tag")  # ["rust", "web"]
+    
+    $bolt.json([:tags = tags])
+})
+
+# /search?tag=rust&tag=web
+# → {"tags": ["rust", "web"]}
+```

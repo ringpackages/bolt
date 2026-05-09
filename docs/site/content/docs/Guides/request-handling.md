@@ -74,3 +74,15 @@ summary: "Access request data including headers, body, and form fields"
     ok
 })
 ```
+
+### Multi-value Form Fields
+
+For checkbox arrays or multi-select inputs that submit multiple values for the same field name, use `formFieldAll()`:
+
+```ring
+@post("/profile", func {
+    hobbies = $bolt.formFieldAll("hobby")  # ["reading", "coding", "gaming"]
+    
+    $bolt.json([:hobbies = hobbies])
+})
+```

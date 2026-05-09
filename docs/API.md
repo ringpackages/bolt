@@ -378,12 +378,20 @@ id = $bolt.param("id")
 ```
 
 ### $bolt.query(cName)
-Get query string parameter.
+Get query string parameter (first value if multi-valued).
 
 ```ring
 # URL: /search?q=hello&page=1
 q = $bolt.query("q")        # "hello"
 page = $bolt.query("page")  # "1"
+```
+
+### $bolt.queryAll(cName)
+Get all values for a query parameter as a list. Useful for `?tag=rust&tag=web` patterns.
+
+```ring
+# URL: /search?tag=rust&tag=web
+tags = $bolt.queryAll("tag")  # ["rust", "web"]
 ```
 
 ### $bolt.header(cName)
@@ -417,11 +425,20 @@ name = data[:name]
 ```
 
 ### $bolt.formField(cName)
-Get form field value from multipart form data.
+Get form field value from multipart form data (first value if multi-valued).
 
 ```ring
 username = $bolt.formField("username")
 password = $bolt.formField("password")
+```
+
+### $bolt.formFieldAll(cName)
+Get all values for a form field as a list. Useful for checkbox arrays and multi-select inputs.
+
+```ring
+# <input type="checkbox" name="hobby" value="reading">
+# <input type="checkbox" name="hobby" value="coding">
+hobbies = $bolt.formFieldAll("hobby")  # ["reading", "coding"]
 ```
 
 ### $bolt.requestId()
@@ -946,6 +963,13 @@ Enable param-based event filtering for an SSE route. When enabled, subscribers o
 sseFilterParams("/channel/:name")
 ```
 
+### $bolt.sseMaxSubscribers(nMax)
+Set the maximum concurrent SSE subscribers per route. When the limit is reached, new subscribers receive a 503 response with a `Retry-After` header. Default: 1000.
+
+```ring
+sseMaxSubscribers(500)
+```
+
 ### $bolt.sseBroadcast(cPath, cData)
 Send data event to all subscribers.
 
@@ -1042,8 +1066,16 @@ token = $bolt.csrfToken()
 # Include in form: <input type="hidden" name="_csrf" value="{{ token }}">
 ```
 
+### $bolt.csrfAutoVerify()
+Enable automatic CSRF token verification for state-changing requests (POST, PUT, DELETE, PATCH). Requires `enableCsrf()` to be called first. When enabled, Bolt checks for a valid CSRF token in the `X-CSRF-Token` header, `_csrf` form field, or `_csrf` query parameter. Requests without a valid token receive a 403 response.
+
+```ring
+enableCsrf("my-csrf-secret")
+csrfAutoVerify()
+```
+
 ### $bolt.verifyCsrf(cToken)
-Verify CSRF token. Checks session binding, HMAC signature, and 1-hour expiry. Returns 1 if valid, 0 otherwise.
+Manually verify a CSRF token. Checks session binding, HMAC signature, and 1-hour expiry. Returns 1 if valid, 0 otherwise. Use this when you need custom CSRF logic instead of `csrfAutoVerify()`.
 
 ```ring
 if $bolt.verifyCsrf($bolt.formField("_csrf"))
@@ -1104,14 +1136,14 @@ corsOrigin("*")  # Allow all origins
 ## Rate Limiting
 
 ### $bolt.rateLimit(nMax, nWindow)
-Configure global rate limiting.
+Configure per-IP rate limiting. Each client IP gets its own counter.
 
 ```ring
-$bolt.rateLimit(100, 60)  # 100 requests per 60 seconds
+$bolt.rateLimit(100, 60)  # 100 requests per 60 seconds per IP
 ```
 
 ### $bolt.checkRateLimit()
-Check if current request is rate limited (returns 1 if allowed, 0 if limited).
+Check if current request is rate limited (returns 1 if allowed, 0 if limited). Rate limiting is per client IP.
 
 ```ring
 if !$bolt.checkRateLimit()

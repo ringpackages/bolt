@@ -1,18 +1,18 @@
 ---
 title: "Rate Limiting"
 weight: 19
-summary: "Global and per-route request rate limiting"
+summary: "Per-IP and per-route request rate limiting"
 ---
 
 ### $bolt.rateLimit(nMax, nWindow)
-Configure global rate limiting.
+Configure per-IP rate limiting. Each client IP gets its own counter.
 
 ```ring
-$bolt.rateLimit(100, 60)  # 100 requests per 60 seconds
+$bolt.rateLimit(100, 60)  # 100 requests per 60 seconds per IP
 ```
 
 ### $bolt.checkRateLimit()
-Check if current request is rate limited (returns 1 if allowed, 0 if limited).
+Check if current request is rate limited (returns 1 if allowed, 0 if limited). Rate limiting is per client IP.
 
 ```ring
 if !$bolt.checkRateLimit()
@@ -20,3 +20,5 @@ if !$bolt.checkRateLimit()
     return
 ok
 ```
+
+The per-IP rate limiter and per-route governor limiters both run periodic cleanup (every 5 minutes) to remove expired entries, preventing unbounded memory growth from unique IP addresses. A warning is logged when a per-route limiter exceeds 10,000 tracked keys.

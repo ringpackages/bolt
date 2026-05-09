@@ -28,6 +28,14 @@ if $bolt.verifyCsrf($bolt.formField("_csrf"))
 ok
 ```
 
+### $bolt.csrfAutoVerify()
+Enable automatic CSRF token verification for state-changing requests (POST, PUT, DELETE, PATCH). Requires `enableCsrf()` to be called first. When enabled, Bolt checks for a valid CSRF token in the `X-CSRF-Token` header, `_csrf` form field, or `_csrf` query parameter. Requests without a valid token receive a 403 response.
+
+```ring
+enableCsrf("my-csrf-secret")
+csrfAutoVerify()
+```
+
 ### $bolt.sha256(cData)
 Generate SHA-256 hash.
 

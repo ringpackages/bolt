@@ -216,6 +216,20 @@ whereAll([
 # → {"query": "hello", "page": "2", "limit": "20"}
 ```
 
+### Multi-value Query Parameters
+
+When the same key appears multiple times, use `queryAll()` to get all values:
+
+```ring
+@get("/search", func {
+    tags = $bolt.queryAll("tag")  # ["rust", "web"]
+    $bolt.json([:tags = tags])
+})
+
+# /search?tag=rust&tag=web
+# → {"tags": ["rust", "web"]}
+```
+
 ---
 
 ## Request Handling
@@ -288,6 +302,17 @@ whereAll([
     else
         $bolt.badRequest("Invalid credentials")
     ok
+})
+```
+
+### Multi-value Form Fields
+
+For checkbox arrays or multi-select inputs, use `formFieldAll()` to get all values:
+
+```ring
+@post("/profile", func {
+    hobbies = $bolt.formFieldAll("hobby")  # ["reading", "coding", "gaming"]
+    $bolt.json([:hobbies = hobbies])
 })
 ```
 
@@ -1043,6 +1068,20 @@ new Bolt() {
 }
 ```
 
+### SSE Subscriber Limit
+
+Limit the number of concurrent subscribers per SSE route. When the limit is reached, new subscribers receive a 503 response with a `Retry-After` header.
+
+```ring
+new Bolt() {
+    port = 3000
+
+    sseMaxSubscribers(500)   # max 500 concurrent subscribers per route
+
+    @sse("/events")
+}
+```
+
 ---
 
 ## Authentication
@@ -1141,6 +1180,8 @@ new Bolt() {
 
 ### CSRF Protection
 
+Manual verification:
+
 ```ring
 new Bolt() {
     port = 3000
@@ -1174,13 +1215,34 @@ new Bolt() {
 }
 ```
 
+Automatic verification (all POST/PUT/DELETE/PATCH requests checked automatically):
+
+```ring
+new Bolt() {
+    port = 3000
+    
+    enableCsrf("csrf-secret-key")
+    csrfAutoVerify()
+    
+    @get("/csrf-token", func {
+        $bolt.json({ "csrf_token": $bolt.csrfToken() })
+    })
+    
+    @post("/submit", func {
+        # CSRF already verified by auto-verify — just process the request
+        $bolt.send("Success!")
+    })
+}
+```
+```
+
 ### Rate Limiting
 
 ```ring
 new Bolt() {
     port = 3000
     
-    # Global: 100 requests per minute
+    # Per-IP: 100 requests per minute per client IP
     $bolt.rateLimit(100, 60)
     
     @before(func {
@@ -1408,7 +1470,7 @@ new Bolt() {
     ipWhitelist("10.0.0.0/8")
     ipBlacklist("1.2.3.4")
     
-    $bolt.rateLimit(1000, 60)  # 1000 req/min
+    $bolt.rateLimit(1000, 60)  # 1000 req/min per IP
     
     enableCsrf("my-csrf-secret")
     setCookieSecret("my-cookie-secret-key-32chars!")
@@ -1748,7 +1810,7 @@ curl -X POST http://localhost:3000/upload \
 2. **Set appropriate limits**
    ```ring
    setBodyLimit(10 * 1024 * 1024)  # Limit body size
-   $bolt.rateLimit(100, 60)               # Rate limiting
+    $bolt.rateLimit(100, 60)               # Per-IP rate limiting
    ```
 
 3. **Configure CORS properly**

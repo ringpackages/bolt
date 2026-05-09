@@ -21,6 +21,13 @@ sseFilterParams("/channel/:name")
 
 With filtering enabled, a subscriber on `/channel/sports` will only receive broadcasts where the params include `name: "sports"`. Without filtering, all subscribers on the channel receive all events.
 
+### $bolt.sseMaxSubscribers(nMax)
+Set the maximum concurrent SSE subscribers per route. When the limit is reached, new subscribers receive a 503 response with a `Retry-After` header. Default: 1000.
+
+```ring
+sseMaxSubscribers(500)
+```
+
 ### $bolt.sseBroadcast(cPath, cData)
 Send data event to all subscribers.
 

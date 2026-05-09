@@ -33,7 +33,7 @@ ok
 ```
 
 ### $bolt.validateParam(cParamName, cPattern)
-Validate URL parameter against regex.
+Validate URL parameter against regex. Patterns are cached and compiled with ReDoS protection (`size_limit` and `dfa_size_limit` set to 1,000,000 bytes) to prevent catastrophic backtracking from malicious inputs.
 
 ```ring
 if !$bolt.validateParam("id", "[0-9]+")
@@ -42,7 +42,7 @@ ok
 ```
 
 ### $bolt.matchRegex(cValue, cPattern)
-Match value against regex (returns 1 or 0).
+Match value against regex (returns 1 or 0). Patterns are cached and compiled with ReDoS protection (`size_limit` and `dfa_size_limit` set to 1,000,000 bytes) to prevent catastrophic backtracking from malicious inputs.
 
 ```ring
 if $bolt.matchRegex(email, "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$")

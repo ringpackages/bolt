@@ -34,12 +34,20 @@ id = $bolt.param("id")
 ```
 
 ### $bolt.query(cName)
-Get query string parameter.
+Get query string parameter (first value if multi-valued).
 
 ```ring
 # URL: /search?q=hello&page=1
 q = $bolt.query("q")        # "hello"
 page = $bolt.query("page")  # "1"
+```
+
+### $bolt.queryAll(cName)
+Get all values for a query parameter as a list. Useful for `?tag=rust&tag=web` patterns.
+
+```ring
+# URL: /search?tag=rust&tag=web
+tags = $bolt.queryAll("tag")  # ["rust", "web"]
 ```
 
 ### $bolt.header(cName)
@@ -73,11 +81,20 @@ name = data[:name]
 ```
 
 ### $bolt.formField(cName)
-Get form field value from multipart form data.
+Get form field value from multipart form data (first value if multi-valued).
 
 ```ring
 username = $bolt.formField("username")
 password = $bolt.formField("password")
+```
+
+### $bolt.formFieldAll(cName)
+Get all values for a form field as a list. Useful for checkbox arrays and multi-select inputs.
+
+```ring
+# <input type="checkbox" name="hobby" value="reading">
+# <input type="checkbox" name="hobby" value="coding">
+hobbies = $bolt.formFieldAll("hobby")  # ["reading", "coding"]
 ```
 
 ### $bolt.requestId()
