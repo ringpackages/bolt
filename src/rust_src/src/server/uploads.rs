@@ -10,6 +10,23 @@ use crate::HTTP_SERVER_TYPE;
 
 use super::HttpServer;
 
+macro_rules! add_file_to_list {
+    ($list:expr, $f:expr) => {
+        let pair = ring_list_newlist($list);
+        ring_list_addstring_str(pair, "name");
+        ring_list_addstring_str(pair, &$f.filename);
+        let pair = ring_list_newlist($list);
+        ring_list_addstring_str(pair, "field");
+        ring_list_addstring_str(pair, &$f.name);
+        let pair = ring_list_newlist($list);
+        ring_list_addstring_str(pair, "type");
+        ring_list_addstring_str(pair, &$f.content_type);
+        let pair = ring_list_newlist($list);
+        ring_list_addstring_str(pair, "size");
+        ring_list_adddouble(pair, $f.data.len() as f64);
+    };
+}
+
 /// bolt_req_files_count(server) → number of uploaded files
 ring_func!(bolt_req_files_count, |p| {
     ring_check_paracount!(p, 1);
@@ -51,18 +68,7 @@ ring_func!(bolt_req_file, |p| {
             if index < ctx.files.len() {
                 let f = &ctx.files[index];
                 let list = ring_new_list!(p);
-                let pair = ring_list_newlist(list);
-                ring_list_addstring_str(pair, "name");
-                ring_list_addstring_str(pair, &f.filename);
-                let pair = ring_list_newlist(list);
-                ring_list_addstring_str(pair, "field");
-                ring_list_addstring_str(pair, &f.name);
-                let pair = ring_list_newlist(list);
-                ring_list_addstring_str(pair, "type");
-                ring_list_addstring_str(pair, &f.content_type);
-                let pair = ring_list_newlist(list);
-                ring_list_addstring_str(pair, "size");
-                ring_list_adddouble(pair, f.data.len() as f64);
+                add_file_to_list!(list, f);
                 ring_ret_list!(p, list);
             } else {
                 ring_ret_list!(p, ring_new_list!(p));
@@ -90,18 +96,7 @@ ring_func!(bolt_req_files, |p| {
             let list = ring_new_list!(p);
             for f in &ctx.files {
                 let file_list = ring_list_newlist(list);
-                let pair = ring_list_newlist(file_list);
-                ring_list_addstring_str(pair, "name");
-                ring_list_addstring_str(pair, &f.filename);
-                let pair = ring_list_newlist(file_list);
-                ring_list_addstring_str(pair, "field");
-                ring_list_addstring_str(pair, &f.name);
-                let pair = ring_list_newlist(file_list);
-                ring_list_addstring_str(pair, "type");
-                ring_list_addstring_str(pair, &f.content_type);
-                let pair = ring_list_newlist(file_list);
-                ring_list_addstring_str(pair, "size");
-                ring_list_adddouble(pair, f.data.len() as f64);
+                add_file_to_list!(file_list, f);
             }
             ring_ret_list!(p, list);
         } else {
@@ -129,18 +124,7 @@ ring_func!(bolt_req_file_by_field, |p| {
         if let Some(ref ctx) = *guard {
             if let Some(f) = ctx.files.iter().find(|f| f.name == field_name) {
                 let list = ring_new_list!(p);
-                let pair = ring_list_newlist(list);
-                ring_list_addstring_str(pair, "name");
-                ring_list_addstring_str(pair, &f.filename);
-                let pair = ring_list_newlist(list);
-                ring_list_addstring_str(pair, "field");
-                ring_list_addstring_str(pair, &f.name);
-                let pair = ring_list_newlist(list);
-                ring_list_addstring_str(pair, "type");
-                ring_list_addstring_str(pair, &f.content_type);
-                let pair = ring_list_newlist(list);
-                ring_list_addstring_str(pair, "size");
-                ring_list_adddouble(pair, f.data.len() as f64);
+                add_file_to_list!(list, f);
                 ring_ret_list!(p, list);
             } else {
                 ring_ret_list!(p, ring_new_list!(p));

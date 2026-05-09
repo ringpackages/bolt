@@ -22,8 +22,6 @@ pub use server::*;
 
 // Type identifiers for Ring C pointers
 pub const HTTP_SERVER_TYPE: &[u8] = b"HttpServer\0";
-pub const HTTP_REQUEST_TYPE: &[u8] = b"HttpRequest\0";
-pub const HTTP_RESPONSE_TYPE: &[u8] = b"HttpResponse\0";
 
 // Register all functions with Ring
 ring_libinit! {

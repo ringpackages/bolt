@@ -8,6 +8,7 @@ use ring_lang_rs::*;
 
 use crate::HTTP_SERVER_TYPE;
 
+const MAX_TEMPLATE_CACHE: usize = 1000;
 use super::HttpServer;
 use crate::modules::json::ring_list_to_json;
 
@@ -92,7 +93,6 @@ ring_func!(bolt_render_file, |p| {
                                     .template_cache
                                     .write()
                                     .unwrap_or_else(|e| e.into_inner());
-                                const MAX_TEMPLATE_CACHE: usize = 1000;
                                 if cache.len() >= MAX_TEMPLATE_CACHE {
                                     if let Some(key) = cache.keys().next().cloned() {
                                         cache.remove(&key);
@@ -128,7 +128,6 @@ ring_func!(bolt_render_file, |p| {
                         .write()
                         .unwrap_or_else(|e| e.into_inner());
                     // Prevent unbounded growth: evict an arbitrary entry if at capacity
-                    const MAX_TEMPLATE_CACHE: usize = 1000;
                     if cache.len() >= MAX_TEMPLATE_CACHE {
                         if let Some(key) = cache.keys().next().cloned() {
                             cache.remove(&key);

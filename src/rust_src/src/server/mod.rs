@@ -76,17 +76,12 @@ impl Expiry<String, (String, u64)> for BoltCacheExpiry {
 
     fn expire_after_update(
         &self,
-        _key: &String,
+        key: &String,
         value: &(String, u64),
-        _updated_at: std::time::Instant,
+        updated_at: std::time::Instant,
         _duration_until_expiry: Option<Duration>,
     ) -> Option<Duration> {
-        let ttl = if value.1 > 0 { value.1 } else { self.0 };
-        if ttl > 0 {
-            Some(Duration::from_secs(ttl))
-        } else {
-            None
-        }
+        self.expire_after_create(key, value, updated_at)
     }
 }
 
@@ -171,8 +166,6 @@ pub struct UploadedFile {
 pub struct CorsConfig {
     pub enabled: bool,
     pub origins: Vec<String>,
-    pub methods: Vec<String>,
-    pub headers: Vec<String>,
     pub credentials: bool,
 }
 
@@ -181,15 +174,6 @@ impl Default for CorsConfig {
         Self {
             enabled: false,
             origins: Vec::new(),
-            methods: vec![
-                "GET".into(),
-                "POST".into(),
-                "PUT".into(),
-                "DELETE".into(),
-                "PATCH".into(),
-                "OPTIONS".into(),
-            ],
-            headers: vec!["Content-Type".into(), "Authorization".into()],
             credentials: false,
         }
     }
@@ -974,7 +958,6 @@ async fn run_server(
     sse_max_subscribers: usize,
 ) -> Result<(), std::io::Error> {
     let openapi_spec_clone = openapi_spec.clone();
-    let (sse_shutdown_tx, _) = tokio::sync::broadcast::channel::<()>(1);
 
     let (vm_tx, mut vm_rx) = tokio::sync::mpsc::channel::<VmWork>(256);
     {
@@ -1274,40 +1257,40 @@ async fn run_server(
                 "GET" => {
                     app = app.route(
                         &path,
-                        web::get().to(move |req, state, query, payload| {
-                            handle_request(req, state, query, payload, handler_name.clone())
+                        web::get().to(move |req, state, payload| {
+                            handle_request(req, state, payload, handler_name.clone())
                         }),
                     );
                 }
                 "POST" => {
                     app = app.route(
                         &path,
-                        web::post().to(move |req, state, query, payload| {
-                            handle_request(req, state, query, payload, handler_name.clone())
+                        web::post().to(move |req, state, payload| {
+                            handle_request(req, state, payload, handler_name.clone())
                         }),
                     );
                 }
                 "PUT" => {
                     app = app.route(
                         &path,
-                        web::put().to(move |req, state, query, payload| {
-                            handle_request(req, state, query, payload, handler_name.clone())
+                        web::put().to(move |req, state, payload| {
+                            handle_request(req, state, payload, handler_name.clone())
                         }),
                     );
                 }
                 "DELETE" => {
                     app = app.route(
                         &path,
-                        web::delete().to(move |req, state, query, payload| {
-                            handle_request(req, state, query, payload, handler_name.clone())
+                        web::delete().to(move |req, state, payload| {
+                            handle_request(req, state, payload, handler_name.clone())
                         }),
                     );
                 }
                 "PATCH" => {
                     app = app.route(
                         &path,
-                        web::patch().to(move |req, state, query, payload| {
-                            handle_request(req, state, query, payload, handler_name.clone())
+                        web::patch().to(move |req, state, payload| {
+                            handle_request(req, state, payload, handler_name.clone())
                         }),
                     );
                 }
@@ -1315,8 +1298,8 @@ async fn run_server(
                     app = app.route(
                         &path,
                         web::route().method(actix_web::http::Method::OPTIONS).to(
-                            move |req, state, query, payload| {
-                                handle_request(req, state, query, payload, handler_name.clone())
+                            move |req, state, payload| {
+                                handle_request(req, state, payload, handler_name.clone())
                             },
                         ),
                     );
@@ -1325,8 +1308,8 @@ async fn run_server(
                     app = app.route(
                         &path,
                         web::route().method(actix_web::http::Method::HEAD).to(
-                            move |req, state, query, payload| {
-                                handle_request(req, state, query, payload, handler_name.clone())
+                            move |req, state, payload| {
+                                handle_request(req, state, payload, handler_name.clone())
                             },
                         ),
                     );
@@ -1337,17 +1320,9 @@ async fn run_server(
                         Ok(method) => {
                             app = app.route(
                                 &path,
-                                web::route().method(method).to(
-                                    move |req, state, query, payload| {
-                                        handle_request(
-                                            req,
-                                            state,
-                                            query,
-                                            payload,
-                                            handler_name.clone(),
-                                        )
-                                    },
-                                ),
+                                web::route().method(method).to(move |req, state, payload| {
+                                    handle_request(req, state, payload, handler_name.clone())
+                                }),
                             );
                         }
                         Err(_) => {
@@ -1507,7 +1482,6 @@ async fn run_server(
 
     let addr = format!("{}:{}", host, port);
 
-    let sse_shutdown_for_signal = sse_shutdown_tx.clone();
     let running_for_signal = running.clone();
 
     let shutdown_future = async move {
@@ -1535,7 +1509,6 @@ async fn run_server(
                 println!("[bolt] Shutdown requested, stopping...");
             }
         }
-        let _ = sse_shutdown_for_signal.send(());
         *running_for_signal.lock() = false;
     };
 
@@ -1686,15 +1659,20 @@ async fn run_server(
 // Generic HTTP Request Handler
 // ========================================
 
+const BLOCKED_RESPONSE_HEADERS: &[&str] = &[
+    "transfer-encoding",
+    "content-length",
+    "connection",
+    "host",
+    "upgrade",
+];
+
 async fn handle_request(
     req: HttpRequest,
     state: web::Data<AppState>,
-    _query: web::Query<HashMap<String, String>>,
     mut payload: web::Payload,
     handler_name: String,
 ) -> HttpResponse {
-    let _start = Instant::now();
-
     let path_params: HashMap<String, String> = req
         .match_info()
         .iter()
@@ -1962,10 +1940,6 @@ async fn handle_request(
                 })
         }
     };
-    let peer_addr = req
-        .peer_addr()
-        .map(|addr| addr.ip().to_string())
-        .unwrap_or_default();
     let ctx = RequestContext {
         id: request_id,
         request_id: request_id_str.clone(),
@@ -2026,16 +2000,9 @@ async fn handle_request(
                     let mut builder = HttpResponse::build(status);
                     builder.insert_header(("X-Request-Id", request_id_str.clone()));
 
-                    let blocked = [
-                        "transfer-encoding",
-                        "content-length",
-                        "connection",
-                        "host",
-                        "upgrade",
-                    ];
                     for (key, value) in headers {
                         let key_lower = key.to_lowercase();
-                        if blocked.contains(&key_lower.as_str()) {
+                        if BLOCKED_RESPONSE_HEADERS.contains(&key_lower.as_str()) {
                             continue;
                         }
                         builder.insert_header((key, value));
@@ -2065,16 +2032,9 @@ async fn handle_request(
                             );
                         }
 
-                        let blocked = [
-                            "transfer-encoding",
-                            "content-length",
-                            "connection",
-                            "host",
-                            "upgrade",
-                        ];
                         for (key, value) in headers {
                             let key_lower = key.to_lowercase();
-                            if blocked.contains(&key_lower.as_str()) {
+                            if BLOCKED_RESPONSE_HEADERS.contains(&key_lower.as_str()) {
                                 continue;
                             }
                             if let (Ok(k), Ok(v)) = (
@@ -2653,13 +2613,7 @@ ring_func!(bolt_sign_cookie, |p| {
     let value = ring_get_string!(p, 1);
     let secret = ring_get_string!(p, 2);
 
-    let key = if secret.len() < 32 {
-        use sha2::{Digest, Sha256};
-        let hash = Sha256::digest(secret.as_bytes());
-        Key::derive_from(&hash)
-    } else {
-        Key::derive_from(secret.as_bytes())
-    };
+    let key = derive_cookie_key(secret);
 
     let mut jar = CookieJar::new();
     jar.signed_mut(&key).add(Cookie::new("bolt", value));
@@ -2673,6 +2627,16 @@ ring_func!(bolt_sign_cookie, |p| {
     ring_ret_string!(p, &signed);
 });
 
+fn derive_cookie_key(secret: &str) -> cookie::Key {
+    if secret.len() < 32 {
+        use sha2::{Digest, Sha256};
+        let hash = Sha256::digest(secret.as_bytes());
+        Key::derive_from(&hash)
+    } else {
+        Key::derive_from(secret.as_bytes())
+    }
+}
+
 /// bolt_verify_cookie(signed_value, secret) → original value or ""
 /// Secrets of any length are accepted: short secrets are hashed to 32 bytes via SHA-256
 ring_func!(bolt_verify_cookie, |p| {
@@ -2683,13 +2647,7 @@ ring_func!(bolt_verify_cookie, |p| {
     let signed_value = ring_get_string!(p, 1);
     let secret = ring_get_string!(p, 2);
 
-    let key = if secret.len() < 32 {
-        use sha2::{Digest, Sha256};
-        let hash = Sha256::digest(secret.as_bytes());
-        Key::derive_from(&hash)
-    } else {
-        Key::derive_from(secret.as_bytes())
-    };
+    let key = derive_cookie_key(secret);
 
     let mut jar = CookieJar::new();
     jar.add_original(Cookie::new("bolt", signed_value));
@@ -4276,17 +4234,14 @@ mod tests {
     async fn test_handle_request_direct(
         req: actix_web::HttpRequest,
         state: web::Data<AppState>,
-        query: web::Query<HashMap<String, String>>,
         payload: web::Payload,
     ) -> actix_web::HttpResponse {
-        test_handle_request_core(req, state, query, payload, "direct".to_string()).await
+        test_handle_request_core(req, state, payload, "direct".to_string()).await
     }
 
-    /// Core test handler logic with handler_name
     async fn test_handle_request_core(
         req: actix_web::HttpRequest,
         state: web::Data<AppState>,
-        query: web::Query<HashMap<String, String>>,
         _payload: web::Payload,
         handler_name: String,
     ) -> actix_web::HttpResponse {
@@ -4359,7 +4314,17 @@ mod tests {
             }
         }
 
-        let query_inner = query.into_inner();
+        let query_inner: HashMap<String, String> = req
+            .query_string()
+            .split('&')
+            .filter(|s| !s.is_empty())
+            .filter_map(|pair| {
+                let mut parts = pair.splitn(2, '=');
+                let key = parts.next()?;
+                let val = parts.next().unwrap_or("");
+                Some((key.to_string(), val.to_string()))
+            })
+            .collect();
 
         // Return a JSON response with what we captured
         let response_body = serde_json::json!({
@@ -4393,6 +4358,8 @@ mod tests {
             regex_cache: Arc::new(Mutex::new(HashMap::new())),
             body_size_limit: Arc::new(std::sync::atomic::AtomicUsize::new(50 * 1024 * 1024)),
             session_secret: String::new(),
+            csrf_secret: None,
+            csrf_auto_verify: false,
             max_multipart_fields: 1000,
             max_multipart_field_size: 10 * 1024 * 1024,
             ws_connection_count: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
@@ -4404,6 +4371,8 @@ mod tests {
             proxy_whitelist: Vec::new(),
             sse_routes: Vec::new(),
             ws_dropped_count: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            sse_subscriber_counts: Arc::new(DashMap::new()),
+            sse_max_subscribers: 1000,
         }
     }
 
@@ -4432,26 +4401,26 @@ mod tests {
             app = match route.method.as_str() {
                 "GET" => app.route(
                     &path,
-                    web::get().to(move |req, state, query, payload| {
-                        test_handle_request_core(req, state, query, payload, handler_name.clone())
+                    web::get().to(move |req, state, payload| {
+                        test_handle_request_core(req, state, payload, handler_name.clone())
                     }),
                 ),
                 "POST" => app.route(
                     &path,
-                    web::post().to(move |req, state, query, payload| {
-                        test_handle_request_core(req, state, query, payload, handler_name.clone())
+                    web::post().to(move |req, state, payload| {
+                        test_handle_request_core(req, state, payload, handler_name.clone())
                     }),
                 ),
                 "PUT" => app.route(
                     &path,
-                    web::put().to(move |req, state, query, payload| {
-                        test_handle_request_core(req, state, query, payload, handler_name.clone())
+                    web::put().to(move |req, state, payload| {
+                        test_handle_request_core(req, state, payload, handler_name.clone())
                     }),
                 ),
                 "DELETE" => app.route(
                     &path,
-                    web::delete().to(move |req, state, query, payload| {
-                        test_handle_request_core(req, state, query, payload, handler_name.clone())
+                    web::delete().to(move |req, state, payload| {
+                        test_handle_request_core(req, state, payload, handler_name.clone())
                     }),
                 ),
                 _ => {
@@ -4459,17 +4428,9 @@ mod tests {
                     match actix_web::http::Method::from_bytes(custom_method.as_bytes()) {
                         Ok(method) => app.route(
                             &path,
-                            web::route()
-                                .method(method)
-                                .to(move |req, state, query, payload| {
-                                    test_handle_request_core(
-                                        req,
-                                        state,
-                                        query,
-                                        payload,
-                                        handler_name.clone(),
-                                    )
-                                }),
+                            web::route().method(method).to(move |req, state, payload| {
+                                test_handle_request_core(req, state, payload, handler_name.clone())
+                            }),
                         ),
                         Err(_) => app,
                     }

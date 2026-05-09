@@ -8,6 +8,7 @@ use actix_web::{HttpRequest, HttpResponse};
 use dashmap::DashMap;
 use futures_util::stream::Stream;
 use std::collections::HashMap;
+use std::ffi::c_void;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
@@ -19,6 +20,28 @@ use ring_lang_rs::*;
 
 use super::{AppState, HttpServer, SseEvent, SseRouteDefinition, convert_path_params};
 use crate::modules::json::ring_list_to_json;
+
+fn extract_sse_params(p: *mut c_void, param_index: i32) -> HashMap<String, String> {
+    if ring_api_paracount(p) >= param_index && ring_api_islist(p, param_index) {
+        let list = ring_api_getlist(p, param_index);
+        match ring_list_to_json(list) {
+            Ok(serde_json::Value::Object(map)) => map
+                .into_iter()
+                .filter_map(|(k, v)| {
+                    if v.is_string() {
+                        Some((k, v.as_str().unwrap().to_string()))
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+            Ok(_) => HashMap::new(),
+            Err(_) => HashMap::new(),
+        }
+    } else {
+        HashMap::new()
+    }
+}
 
 pub(crate) async fn handle_sse(
     req: HttpRequest,
@@ -217,28 +240,7 @@ ring_func!(bolt_sse_broadcast, |p| {
     let data = ring_get_string!(p, 3);
     let path_converted = convert_path_params(path);
 
-    let params: HashMap<String, String> = if ring_api_paracount(p) >= 4 && ring_api_islist(p, 4) {
-        let list = ring_api_getlist(p, 4);
-        match ring_list_to_json(list) {
-            Ok(serde_json::Value::Object(map)) => map
-                .into_iter()
-                .filter_map(|(k, v)| {
-                    if v.is_string() {
-                        Some((k, v.as_str().unwrap().to_string()))
-                    } else {
-                        None
-                    }
-                })
-                .collect(),
-            Ok(_) => HashMap::new(),
-            Err(e) => {
-                eprintln!("[bolt] SSE broadcast params: {}", e);
-                HashMap::new()
-            }
-        }
-    } else {
-        HashMap::new()
-    };
+    let params = extract_sse_params(p, 4);
 
     unsafe {
         let server = &*(ptr as *const HttpServer);
@@ -283,28 +285,7 @@ ring_func!(bolt_sse_broadcast_event, |p| {
     let data = ring_get_string!(p, 4);
     let path_converted = convert_path_params(path);
 
-    let params: HashMap<String, String> = if ring_api_paracount(p) >= 5 && ring_api_islist(p, 5) {
-        let list = ring_api_getlist(p, 5);
-        match ring_list_to_json(list) {
-            Ok(serde_json::Value::Object(map)) => map
-                .into_iter()
-                .filter_map(|(k, v)| {
-                    if v.is_string() {
-                        Some((k, v.as_str().unwrap().to_string()))
-                    } else {
-                        None
-                    }
-                })
-                .collect(),
-            Ok(_) => HashMap::new(),
-            Err(e) => {
-                eprintln!("[bolt] SSE broadcast_event params: {}", e);
-                HashMap::new()
-            }
-        }
-    } else {
-        HashMap::new()
-    };
+    let params = extract_sse_params(p, 5);
 
     unsafe {
         let server = &*(ptr as *const HttpServer);
