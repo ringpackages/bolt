@@ -53,37 +53,48 @@ pub(crate) async fn handle_websocket(
 
     if state
         .ws_connection_count
-        .load(std::sync::atomic::Ordering::Relaxed)
+        .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         >= state.ws_max_connections
     {
+        state
+            .ws_connection_count
+            .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
         return Ok(HttpResponse::ServiceUnavailable().body("Too many WebSocket connections"));
     }
 
-    let per_ip_count = state
+    let mut per_ip_count = state
         .ws_per_ip_count
         .entry(client_ip_str.clone())
         .or_insert(0);
     if *per_ip_count >= state.ws_max_per_ip {
         drop(per_ip_count);
+        state
+            .ws_connection_count
+            .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
         return Ok(
             HttpResponse::TooManyRequests().body("Too many WebSocket connections from this IP")
         );
     }
+    *per_ip_count += 1;
     drop(per_ip_count);
 
-    let (response, session, msg_stream) = actix_ws::handle(&req, stream)?;
+    let (response, session, msg_stream) = actix_ws::handle(&req, stream).map_err(|e| {
+        state
+            .ws_connection_count
+            .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+        if let Some(mut count) = state.ws_per_ip_count.get_mut(&client_ip_str) {
+            *count = count.saturating_sub(1);
+            if *count == 0 {
+                drop(count);
+                state.ws_per_ip_count.remove(&client_ip_str);
+            }
+        }
+        e
+    })?;
 
     let mut msg_stream = msg_stream
         .aggregate_continuations()
         .max_continuation_size(4 * 1024 * 1024);
-
-    state
-        .ws_connection_count
-        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    *state
-        .ws_per_ip_count
-        .entry(client_ip_str.clone())
-        .or_insert(0) += 1;
 
     let ws_params: HashMap<String, String> = req
         .match_info()

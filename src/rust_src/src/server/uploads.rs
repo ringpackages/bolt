@@ -183,7 +183,8 @@ ring_func!(bolt_req_file_save, |p| {
             if index < ctx.files.len() {
                 match std::fs::OpenOptions::new()
                     .write(true)
-                    .create_new(true)
+                    .create(true)
+                    .truncate(true)
                     .open(path)
                     .and_then(|mut f| {
                         use std::io::Write;

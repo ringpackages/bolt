@@ -22,7 +22,13 @@ ring_func!(bolt_render_template, |p| {
     let _ptr = ring_api_getcpointer(p, 1, HTTP_SERVER_TYPE);
     let template_str = ring_get_string!(p, 2);
     let list = ring_api_getlist(p, 3);
-    let data = ring_list_to_json(list);
+    let data = match ring_list_to_json(list) {
+        Ok(v) => v,
+        Err(e) => {
+            ring_error!(p, &e);
+            return;
+        }
+    };
 
     let mut env = minijinja::Environment::new();
     env.set_fuel(Some(100_000));
@@ -145,7 +151,13 @@ ring_func!(bolt_render_file, |p| {
     };
 
     let list = ring_api_getlist(p, 3);
-    let data = ring_list_to_json(list);
+    let data = match ring_list_to_json(list) {
+        Ok(v) => v,
+        Err(e) => {
+            ring_error!(p, &e);
+            return;
+        }
+    };
 
     let dir = std::path::Path::new(filepath)
         .parent()

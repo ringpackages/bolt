@@ -67,7 +67,13 @@ ring_func!(bolt_respond_json, |p| {
 
     let json_body = if ring_api_islist(p, 3) {
         let list = ring_api_getlist(p, 3);
-        let value = ring_list_to_json(list);
+        let value = match ring_list_to_json(list) {
+            Ok(v) => v,
+            Err(e) => {
+                ring_error!(p, &e);
+                return;
+            }
+        };
         serde_json::to_string(&value).unwrap_or_else(|_| "{}".to_string())
     } else {
         ring_get_string!(p, 3).to_string()

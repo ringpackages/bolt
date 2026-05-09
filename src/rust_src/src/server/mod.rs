@@ -2959,19 +2959,22 @@ ring_func!(bolt_set_session_capacity, |p| {
     ring_ret_number!(p, 1.0);
 });
 
-/// bolt_force_secure_cookies(server) → force Secure flag on session cookies even without TLS
+/// bolt_force_secure_cookies(server, enabled) → force Secure flag on session cookies even without TLS
 ring_func!(bolt_force_secure_cookies, |p| {
-    ring_check_paracount!(p, 1);
+    ring_check_paracount!(p, 2);
     ring_check_cpointer!(p, 1);
+    ring_check_number!(p, 2);
 
     let ptr = ring_api_getcpointer(p, 1, HTTP_SERVER_TYPE);
     if ptr.is_null() {
         return;
     }
 
+    let enabled = ring_get_number!(p, 2) != 0.0;
+
     unsafe {
         let server = &mut *(ptr as *mut HttpServer);
-        server.config.force_secure_cookies = true;
+        server.config.force_secure_cookies = enabled;
     }
 
     ring_ret_number!(p, 1.0);

@@ -26,10 +26,9 @@ ring_func!(bolt_aes_encrypt, |p| {
     if kb.len() == 32 {
         key_bytes.copy_from_slice(kb);
     } else {
-        use pbkdf2::pbkdf2_hmac;
-        use sha2::Sha256;
-        let salt = b"bolt-aes-gcm-v1";
-        pbkdf2_hmac::<Sha256>(kb, salt, 600_000, &mut key_bytes);
+        use sha2::{Digest, Sha256};
+        let hash = Sha256::digest(kb);
+        key_bytes.copy_from_slice(&hash);
     }
 
     let key = <&Key<Aes256Gcm>>::from(&key_bytes);
@@ -68,10 +67,9 @@ ring_func!(bolt_aes_decrypt, |p| {
     if kb.len() == 32 {
         key_bytes.copy_from_slice(kb);
     } else {
-        use pbkdf2::pbkdf2_hmac;
-        use sha2::Sha256;
-        let salt = b"bolt-aes-gcm-v1";
-        pbkdf2_hmac::<Sha256>(kb, salt, 600_000, &mut key_bytes);
+        use sha2::{Digest, Sha256};
+        let hash = Sha256::digest(kb);
+        key_bytes.copy_from_slice(&hash);
     }
 
     use base64::Engine;

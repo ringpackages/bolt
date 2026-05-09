@@ -249,7 +249,9 @@ ring_func!(bolt_verify_csrf, |p| {
 struct JwtClaims {
     #[serde(flatten)]
     data: serde_json::Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
     exp: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     iat: Option<u64>,
 }
 
@@ -260,7 +262,13 @@ ring_func!(bolt_jwt_encode, |p| {
 
     let data_json = if ring_api_islist(p, 1) {
         let list = ring_api_getlist(p, 1);
-        let value = ring_list_to_json(list);
+        let value = match ring_list_to_json(list) {
+            Ok(v) => v,
+            Err(e) => {
+                ring_error!(p, &e);
+                return;
+            }
+        };
         serde_json::to_string(&value).unwrap_or_else(|_| "{}".to_string())
     } else {
         ring_get_string!(p, 1).to_string()
@@ -319,7 +327,7 @@ ring_func!(bolt_jwt_decode, |p| {
 
     let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::HS256);
     validation.validate_exp = true;
-    validation.required_spec_claims.insert("exp".to_string());
+    validation.required_spec_claims.remove("exp");
 
     match jsonwebtoken::decode::<JwtClaims>(
         token,
@@ -351,7 +359,7 @@ ring_func!(bolt_jwt_verify, |p| {
 
     let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::HS256);
     validation.validate_exp = true;
-    validation.required_spec_claims.insert("exp".to_string());
+    validation.required_spec_claims.remove("exp");
 
     match jsonwebtoken::decode::<JwtClaims>(
         token,
