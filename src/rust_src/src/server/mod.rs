@@ -3560,8 +3560,6 @@ mod tests {
         let config = CorsConfig::default();
         assert!(!config.enabled);
         assert!(config.origins.is_empty());
-        assert_eq!(config.methods.len(), 6);
-        assert_eq!(config.headers.len(), 2);
         assert!(!config.credentials);
     }
 
@@ -3922,8 +3920,6 @@ mod tests {
         let config = CorsConfig {
             enabled: true,
             origins: vec!["https://example.com".into()],
-            methods: vec!["GET".into(), "POST".into()],
-            headers: vec!["X-Custom".into()],
             credentials: true,
         };
         assert!(config.enabled);
