@@ -964,7 +964,7 @@ class Bolt {
 
     /// @brief Forces the Secure flag on session cookies even without TLS.
     func forceSecureCookies() {
-        bolt_force_secure_cookies(pHandle)
+        bolt_force_secure_cookies(pHandle, 1)
     }
 
     /// @brief Sets the maximum number of multipart form fields.
