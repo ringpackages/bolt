@@ -265,6 +265,9 @@ pub(crate) async fn handle_websocket(
                     }
                     actix_ws::AggregatedMessage::Pong(_) => continue,
                 },
+                Err(actix_ws::ProtocolError::Io(_)) => {
+                    break;
+                }
                 Err(e) => {
                     eprintln!("[bolt] WS protocol error: {:?}", e);
                     break;
