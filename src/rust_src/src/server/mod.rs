@@ -1516,7 +1516,7 @@ async fn run_server(
         let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
 
         use rustls::ServerConfig;
-        use rustls_pemfile::{certs, pkcs8_private_keys};
+        use rustls_pemfile::{certs, ec_private_keys, pkcs8_private_keys, rsa_private_keys};
         use std::io::BufReader;
 
         let cert_file = match std::fs::File::open(&tls_config.cert_path) {
@@ -1532,27 +1532,48 @@ async fn run_server(
             }
         };
 
-        let key_file = match std::fs::File::open(&tls_config.key_path) {
-            Ok(f) => f,
-            Err(e) => {
-                eprintln!("\n[error] Failed to load TLS key");
-                eprintln!("        Key:  {}", tls_config.key_path);
-                eprintln!("        {}\n", e);
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    format!("Failed to load TLS key: {}", e),
-                ));
-            }
-        };
-
         let cert_chain: Vec<rustls::pki_types::CertificateDer> =
             certs(&mut BufReader::new(cert_file))
                 .filter_map(Result::ok)
                 .collect();
 
-        let mut keys = pkcs8_private_keys(&mut BufReader::new(key_file))
-            .filter_map(Result::ok)
-            .collect::<Vec<_>>();
+        let key_bytes = match std::fs::read(&tls_config.key_path) {
+            Ok(b) => b,
+            _ => {
+                eprintln!(
+                    "\n[error] Failed to read TLS key: {}\n",
+                    tls_config.key_path
+                );
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "Failed to read TLS key file",
+                ));
+            }
+        };
+
+        let mut keys: Vec<rustls::pki_types::PrivateKeyDer> = Vec::new();
+
+        for k in pkcs8_private_keys(&mut std::io::Cursor::new(&key_bytes)) {
+            if let Ok(key) = k {
+                keys.push(rustls::pki_types::PrivateKeyDer::Pkcs8(key));
+            }
+        }
+
+        if keys.is_empty() {
+            for k in rsa_private_keys(&mut std::io::Cursor::new(&key_bytes)) {
+                if let Ok(key) = k {
+                    keys.push(rustls::pki_types::PrivateKeyDer::Pkcs1(key));
+                }
+            }
+        }
+
+        if keys.is_empty() {
+            for k in ec_private_keys(&mut std::io::Cursor::new(&key_bytes)) {
+                if let Ok(key) = k {
+                    keys.push(rustls::pki_types::PrivateKeyDer::Sec1(key));
+                }
+            }
+        }
 
         if keys.is_empty() {
             eprintln!(
@@ -1567,10 +1588,8 @@ async fn run_server(
 
         let tls_config = match ServerConfig::builder()
             .with_no_client_auth()
-            .with_single_cert(
-                cert_chain,
-                rustls::pki_types::PrivateKeyDer::Pkcs8(keys.remove(0)),
-            ) {
+            .with_single_cert(cert_chain, keys.remove(0))
+        {
             Ok(c) => c,
             Err(e) => {
                 eprintln!("\n[error] Failed to build TLS config: {}\n", e);
