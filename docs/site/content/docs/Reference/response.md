@@ -25,6 +25,20 @@ Send text with custom status.
 $bolt.sendWithStatus(201, "Created")
 ```
 
+### $bolt.html(cContent)
+Send HTML response (200 OK). Sets `Content-Type: text/html; charset=utf-8`.
+
+```ring
+$bolt.html("<h1>Hello World</h1>")
+```
+
+### $bolt.htmlWithStatus(nStatus, cContent)
+Send HTML with custom status.
+
+```ring
+$bolt.htmlWithStatus(200, "<h1>OK</h1>")
+```
+
 ### $bolt.json(aData)
 Send JSON response.
 

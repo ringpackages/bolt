@@ -17,6 +17,16 @@ $bolt.sendWithStatus(201, "Resource created")
 $bolt.sendStatus(204)  # No content
 ```
 
+### HTML Responses
+
+```ring
+# Simple HTML
+$bolt.html("<h1>Welcome</h1>")
+
+# With custom status
+$bolt.htmlWithStatus(200, "<h1>OK</h1>")
+```
+
 ### JSON Responses
 
 ```ring
