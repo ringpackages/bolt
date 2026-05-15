@@ -37,6 +37,7 @@ aPackageInfo = [
 
 		// Source
 		"src/bolt.ring",
+		"src/constants.ring",
 
 		// Utils
 		"src/utils/color.ring",
