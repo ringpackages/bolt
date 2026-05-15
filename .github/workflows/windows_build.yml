@@ -31,9 +31,10 @@ jobs:
     - name: Clone Ring Language
       uses: actions/checkout@v6
       with:
-        repository: ringpackages/ringsrc
+        repository: ring-lang/ring
         path: ring
         ref: ${{ inputs.ring-version }}
+        fetch-depth: 1
 
     - name: Configure and Build Ring Language for ${{ matrix.arch_name }}
       shell: cmd
