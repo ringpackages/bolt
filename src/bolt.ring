@@ -738,6 +738,21 @@ class Bolt {
         bolt_respond(pHandle, 200, cContent)
     }
 
+    /// @brief Sends an HTML response with 200 status.
+    /// @param cContent HTML content.
+    func html(cContent) {
+        setHeader("Content-Type", "text/html; charset=utf-8")
+        bolt_respond(pHandle, 200, cContent)
+    }
+
+    /// @brief Sends an HTML response with a custom status code.
+    /// @param nStatus HTTP status code.
+    /// @param cContent HTML content.
+    func htmlWithStatus(nStatus, cContent) {
+        setHeader("Content-Type", "text/html; charset=utf-8")
+        bolt_respond(pHandle, nStatus, cContent)
+    }
+
     /// @brief Sends a response with only a status code.
     /// @param nStatus HTTP status code.
     func sendStatus(nStatus) {
@@ -851,7 +866,7 @@ class Bolt {
     /// @param aData Data to pass to the template.
     func render(cTemplate, aData) {
         cResult = bolt_render_template(pHandle, cTemplate, aData)
-        send(cResult)
+        html(cResult)
     }
 
     /// @brief Renders a template file with data and sends as response.
@@ -859,7 +874,7 @@ class Bolt {
     /// @param aData Data to pass to the template.
     func renderFile(cFilepath, aData) {
         cResult = bolt_render_file(pHandle, cFilepath, aData)
-        send(cResult)
+        html(cResult)
     }
 
     /// @brief Renders a template string with data and returns the result.
@@ -1390,8 +1405,7 @@ class Bolt {
                 :has_docs = lHasDocs
             ]
             cHtml = $bolt.renderTemplate(cTemplate, aData)
-            $bolt.setHeader("Content-Type", "text/html")
-            $bolt.send(cHtml)
+            $bolt.html(cHtml)
         })
 
         return self
