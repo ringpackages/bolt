@@ -7,7 +7,7 @@ load "bolt.ring"
 new Bolt() {
 	// API route
 	@get("/", func {
-		$bolt.send("<h1>Bolt</h1><p>API + Static files!</p>")
+		$bolt.html("<h1>Bolt</h1><p>API + Static files!</p>")
 	})
 	
 	@get("/api/hello", func {

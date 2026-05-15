@@ -71,7 +71,7 @@ new Bolt() {
 	})
 	
 	@get("/", func {
-		$bolt.send(`<h1>Request & Response Example</h1>
+		$bolt.html(`<h1>Request & Response Example</h1>
 <h3>Test these endpoints:</h3>
 <pre>
 // Headers

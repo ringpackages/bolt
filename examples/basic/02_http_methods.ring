@@ -61,7 +61,7 @@ new Bolt() {
 	
 	// Info page
 	@get("/", func {
-		$bolt.send(`<h1>HTTP Methods Example</h1>
+		$bolt.html(`<h1>HTTP Methods Example</h1>
 <p>Try these curl commands:</p>
 <pre>
 GET:    curl http://localhost:3000/users

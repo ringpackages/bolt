@@ -58,7 +58,7 @@ new Bolt() {
 	})
 	
 	@get("/", func {
-		$bolt.send("
+		$bolt.html("
 <h1>Route Parameters & Query Strings</h1>
 <h3>Try these:</h3>
 <ul>
