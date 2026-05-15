@@ -52,7 +52,9 @@ jobs:
         workspaces: "src/rust_src -> target"
 
     - name: Build ring_bolt Rust library
-      run: cargo build --release --target ${{ matrix.rust_target }}
+      run: |
+        export PATH="$CARGO_HOME/bin:$PATH"
+        cargo build --release --target ${{ matrix.rust_target }}
       working-directory: src/rust_src
 
     - name: Copy Rust artifacts to lib directory
