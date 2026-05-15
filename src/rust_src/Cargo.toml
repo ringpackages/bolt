@@ -48,7 +48,7 @@ minijinja = { version = "2.19", features = ["fuel"] }
 moka = { version = "0.12", features = ["sync"] }
 parking_lot = "0.12"
 regex = "1.12"
-ring-lang-rs = "0.1"
+ring-lang-rs = "0.1.18"
 rustls = { version = "0.23", features = ["aws_lc_rs"] }
 rustls-pemfile = "2.2"
 scrypt = { version = "0.12", features = ["password-hash", "phc", "getrandom"] }
