@@ -9,7 +9,7 @@ summary: "JWT tokens and Basic Auth for securing routes"
 ```ring
 load "bolt.ring"
 
-SECRET = "your-super-secret-key"
+SECRET = "your-super-secret-key-must-be-32+chars!!"
 
 new Bolt() {
     port = 3000

@@ -72,6 +72,34 @@ Get raw request body as base64-encoded string (binary-safe).
 encoded = $bolt.bodyBase64()
 ```
 
+### $bolt.base64Decode(cStr)
+Decode a base64-encoded string.
+
+```ring
+decoded = $bolt.base64Decode("aGVsbG8gd29ybGQ=")  # "hello world"
+```
+
+### $bolt.base64Encode(cStr)
+Encode a string as base64.
+
+```ring
+encoded = $bolt.base64Encode("hello world")  # "aGVsbG8gd29ybGQ="
+```
+
+### $bolt.base64UrlEncode(cStr)
+Encode a string as URL-safe base64.
+
+```ring
+encoded = $bolt.base64UrlEncode("hello world")  # "aGVsbG8gd29ybGQ"
+```
+
+### $bolt.base64UrlDecode(cStr)
+Decode a URL-safe base64-encoded string.
+
+```ring
+decoded = $bolt.base64UrlDecode("aGVsbG8gd29ybGQ")  # "hello world"
+```
+
 ### $bolt.jsonBody()
 Parse request body as JSON.
 

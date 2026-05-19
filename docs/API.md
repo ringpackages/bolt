@@ -416,6 +416,20 @@ Get raw request body as base64-encoded string (binary-safe).
 encoded = $bolt.bodyBase64()
 ```
 
+### $bolt.base64Decode(cStr)
+Decode a base64-encoded string.
+
+```ring
+decoded = $bolt.base64Decode("aGVsbG8gd29ybGQ=")  # "hello world"
+```
+
+### $bolt.base64Encode(cStr)
+Encode a string as base64.
+
+```ring
+encoded = $bolt.base64Encode("hello world")  # "aGVsbG8gd29ybGQ="
+```
+
 ### $bolt.jsonBody()
 Parse request body as JSON.
 
@@ -1010,17 +1024,17 @@ es.addEventListener('update', (e) => console.log(e.data));
 ## Authentication
 
 ### $bolt.jwtEncode(aData, cSecret)
-Create JWT token.
+Create JWT token. Secret must be at least 32 bytes.
 
 ```ring
-token = $bolt.jwtEncode([:user_id = 123, :role = "admin"], "secret")
+token = $bolt.jwtEncode([:user_id = 123, :role = "admin"], "my-secret-key-at-least-32-bytes!!")
 ```
 
 ### $bolt.jwtEncodeExp(aData, cSecret, nExpires)
-Create JWT with expiration (seconds from now).
+Create JWT with expiration (seconds from now). Secret must be at least 32 bytes.
 
 ```ring
-token = $bolt.jwtEncodeExp([:user_id = 123], "secret", 3600)  # 1 hour
+token = $bolt.jwtEncodeExp([:user_id = 123], "my-secret-key-at-least-32-bytes!!", 3600)  # 1 hour
 ```
 
 ### $bolt.jwtDecode(cToken, cSecret)
@@ -1253,6 +1267,34 @@ URL-decode a string.
 
 ```ring
 decoded = $bolt.urlDecode("hello%20world")  # "hello world"
+```
+
+### $bolt.base64Encode(cStr)
+Encode a string as base64.
+
+```ring
+encoded = $bolt.base64Encode("hello world")  # "aGVsbG8gd29ybGQ="
+```
+
+### $bolt.base64Decode(cStr)
+Decode a base64-encoded string.
+
+```ring
+decoded = $bolt.base64Decode("aGVsbG8gd29ybGQ=")  # "hello world"
+```
+
+### $bolt.base64UrlEncode(cStr)
+Encode a string as URL-safe base64 (replaces `+` with `-`, `/` with `_`).
+
+```ring
+encoded = $bolt.base64UrlEncode("hello world")  # "aGVsbG8gd29ybGQ"
+```
+
+### $bolt.base64UrlDecode(cStr)
+Decode a URL-safe base64-encoded string.
+
+```ring
+decoded = $bolt.base64UrlDecode("aGVsbG8gd29ybGQ")  # "hello world"
 ```
 
 ---
@@ -1564,10 +1606,11 @@ encrypted = crypto.aesEncrypt("secret data", "0123456789abcdef0123456789abcdef")
 ```
 
 ### crypto.aesDecrypt(cCiphertext, cKey)
-Decrypt AES-256-GCM ciphertext. Returns decrypted plaintext.
+Decrypt AES-256-GCM ciphertext. Returns base64-encoded plaintext (decode with `$bolt.base64Decode()`).
 
 ```ring
-decrypted = crypto.aesDecrypt(encrypted, "0123456789abcdef0123456789abcdef")
+cB64 = crypto.aesDecrypt(encrypted, "0123456789abcdef0123456789abcdef")
+decrypted = $bolt.base64Decode(cB64)
 ```
 
 ### crypto.hmacSha256(cMessage, cKey)

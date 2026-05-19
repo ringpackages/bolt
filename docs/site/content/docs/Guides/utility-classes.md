@@ -143,7 +143,8 @@ crypto = new Crypto
 # AES-256-GCM encryption (key must be 32 bytes)
 key = "0123456789abcdef0123456789abcdef"
 encrypted = crypto.aesEncrypt("secret data", key)
-decrypted = crypto.aesDecrypt(encrypted, key)
+cB64 = crypto.aesDecrypt(encrypted, key)
+decrypted = $bolt.base64Decode(cB64)
 
 # HMAC-SHA256 signatures
 sig = crypto.hmacSha256("message", "signing-key")

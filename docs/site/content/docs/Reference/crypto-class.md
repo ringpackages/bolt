@@ -18,10 +18,11 @@ encrypted = crypto.aesEncrypt("secret data", "0123456789abcdef0123456789abcdef")
 ```
 
 ### crypto.aesDecrypt(cCiphertext, cKey)
-Decrypt AES-256-GCM ciphertext. Returns decrypted plaintext.
+Decrypt AES-256-GCM ciphertext. Returns base64-encoded plaintext (decode with `$bolt.base64Decode()`).
 
 ```ring
-decrypted = crypto.aesDecrypt(encrypted, "0123456789abcdef0123456789abcdef")
+cB64 = crypto.aesDecrypt(encrypted, "0123456789abcdef0123456789abcdef")
+decrypted = $bolt.base64Decode(cB64)
 ```
 
 ### crypto.hmacSha256(cMessage, cKey)
