@@ -58,7 +58,6 @@ ring_libinit! {
     "bolt_req_form_field" => bolt_req_form_field,
     "bolt_req_form_field_all" => bolt_req_form_field_all,
     "bolt_req_client_ip" => bolt_req_client_ip,
-    "bolt_req_handler" => bolt_req_handler,
     "bolt_req_cookie" => bolt_req_cookie,
 
     // Cookie functions

@@ -2773,27 +2773,6 @@ ring_func!(bolt_unixtime_ms, |p| {
     ring_ret_number!(p, timestamp as f64);
 });
 
-/// bolt_req_handler(server) → current handler name
-ring_func!(bolt_req_handler, |p| {
-    ring_check_paracount!(p, 1);
-    ring_check_cpointer!(p, 1);
-
-    let ptr = ring_api_getcpointer(p, 1, HTTP_SERVER_TYPE);
-    if ptr.is_null() {
-        return;
-    }
-
-    unsafe {
-        let server = &*(ptr as *const HttpServer);
-        let guard = server.current_request.lock();
-        if let Some(ref ctx) = *guard {
-            ring_ret_string!(p, &ctx.handler_name);
-        } else {
-            ring_ret_string!(p, "");
-        }
-    }
-});
-
 /// bolt_hash_sha256(data) → hex hash
 ring_func!(bolt_hash_sha256, |p| {
     ring_check_paracount!(p, 1);
