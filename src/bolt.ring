@@ -616,6 +616,34 @@ class Bolt {
         return bolt_req_body_base64(pHandle)
     }
 
+    /// @brief Decodes a base64 string.
+    /// @param cStr Base64-encoded string.
+    /// @return Decoded string.
+    func base64Decode(cStr) {
+        return bolt_base64_decode(cStr)
+    }
+
+    /// @brief Encodes a string as base64.
+    /// @param cStr Plain text string.
+    /// @return Base64-encoded string.
+    func base64Encode(cStr) {
+        return bolt_base64_encode(cStr)
+    }
+
+    /// @brief Encodes a string as URL-safe base64.
+    /// @param cStr Plain text string.
+    /// @return URL-safe base64-encoded string.
+    func base64UrlEncode(cStr) {
+        return bolt_base64_url_encode(cStr)
+    }
+
+    /// @brief Decodes a URL-safe base64-encoded string.
+    /// @param cStr URL-safe base64-encoded string.
+    /// @return Decoded string.
+    func base64UrlDecode(cStr) {
+        return bolt_base64_url_decode(cStr)
+    }
+
     /// @brief Gets the request body parsed as JSON.
     /// @return Parsed JSON data or empty list if invalid.
     func jsonBody() {
