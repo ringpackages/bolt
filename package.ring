@@ -44,7 +44,7 @@ aPackageInfo = [
 		"src/utils/install.ring",
 		"src/utils/uninstall.ring",
 
-		// Examples
+		// Examples - Basic
 		"examples/basic/01_hello.ring",
 		"examples/basic/02_http_methods.ring",
 		"examples/basic/03_route_params.ring",
@@ -52,6 +52,30 @@ aPackageInfo = [
 		"examples/basic/05_json_api.ring",
 		"examples/basic/06_static_files.ring",
 		"examples/basic/static/index.html",
+
+		// Examples - Intermediate
+		"examples/intermediate/07_cookies_sessions.ring",
+		"examples/intermediate/08_middleware.ring",
+		"examples/intermediate/09_file_upload.ring",
+		"examples/intermediate/10_templates.ring",
+		"examples/intermediate/11_form_handling.ring",
+		"examples/intermediate/12_error_handling.ring",
+		"examples/intermediate/13_signed_cookies_flash.ring",
+		"examples/intermediate/14_route_grouping.ring",
+		"examples/intermediate/15_per_route_middleware.ring",
+		"examples/intermediate/16_openapi_docs.ring",
+		"examples/intermediate/17_logging.ring",
+		"examples/intermediate/18_validate_sanitize.ring",
+		"examples/intermediate/19_env.ring",
+		"examples/intermediate/templates/base.html",
+		"examples/intermediate/templates/home.html",
+		"examples/intermediate/templates/about.html",
+		"examples/intermediate/templates/team.html",
+		"examples/intermediate/templates/contact.html",
+		"examples/intermediate/templates/form_contact.html",
+		"examples/intermediate/templates/form_success.html",
+		"examples/intermediate/templates/upload_form.html",
+		"examples/intermediate/templates/upload_success.html",
 
 		// Rust - Config
 		"src/rust_src/Cargo.toml",
