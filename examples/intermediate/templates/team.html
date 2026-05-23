@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Team - Bolt Templates{% endblock %}
+
+{% block head %}
+<style>
+    .page-header { margin-bottom: 36px; }
+    .page-header h1 { margin-bottom: 10px; font-size: 32px; background: linear-gradient(135deg, #f1f5f9, #94a3b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .page-header p { color: var(--text-secondary); font-size: 16px; }
+    .team-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+    .member {
+        text-align: center;
+        padding: 32px 22px;
+        transition: all var(--transition);
+    }
+    .member:hover { transform: translateY(-3px); background: var(--surface-hover); border-color: rgba(99,102,241,0.2); }
+    .avatar {
+        width: 76px; height: 76px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 26px; font-weight: 700; color: white;
+        margin: 0 auto 16px;
+        box-shadow: 0 0 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+    }
+    .member h3 { margin-bottom: 4px; font-size: 17px; }
+    .member .role { color: var(--accent); font-size: 13px; font-weight: 500; margin-bottom: 12px; }
+    .member .bio { color: var(--text-secondary); font-size: 14px; line-height: 1.5; }
+    .member .badge { margin-top: 14px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Our Team</h1>
+    <p>Meet the people behind Bolt Framework.</p>
+</div>
+
+<div class="team-grid">
+    {% for member in members %}
+    <div class="card member">
+        <div class="avatar" style="background: {{ member.color }};">{{ member.initials }}</div>
+        <h3>{{ member.name }}</h3>
+        <div class="role">{{ member.role }}</div>
+        <div class="bio">{{ member.bio }}</div>
+        <span class="badge {% if member.active %}badge-green{% else %}badge-red{% endif %}">
+            {% if member.active %}Active{% else %}Alumni{% endif %}
+        </span>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Bolt Templates{% endblock %}
+
+{% block head %}
+<style>
+    .hero { text-align: center; margin-bottom: 40px; }
+    .hero h1 { font-size: 36px; margin-bottom: 12px; background: linear-gradient(135deg, #f1f5f9, #94a3b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .hero p { color: var(--text-secondary); font-size: 16px; max-width: 540px; margin: 0 auto; }
+    .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-bottom: 24px; }
+    .feature-card {
+        text-align: center;
+        padding: 32px 22px;
+        transition: all var(--transition);
+    }
+    .feature-card:hover { transform: translateY(-3px); background: var(--surface-hover); border-color: rgba(99,102,241,0.2); }
+    .feature-icon {
+        width: 56px; height: 56px;
+        background: rgba(99,102,241,0.1);
+        border: 1px solid rgba(99,102,241,0.2);
+        border-radius: var(--radius);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 26px; margin: 0 auto 16px;
+        box-shadow: 0 0 20px rgba(99,102,241,0.08);
+    }
+    .feature-card h3 { margin-bottom: 6px; font-size: 17px; }
+    .feature-card p { color: var(--text-secondary); font-size: 14px; line-height: 1.5; }
+    .stats-table { width: 100%; border-collapse: collapse; }
+    .stats-table th {
+        text-align: left; padding: 14px 18px; font-size: 11px;
+        text-transform: uppercase; letter-spacing: 0.06em;
+        color: var(--text-secondary); border-bottom: 1px solid var(--glass-border);
+    }
+    .stats-table td { padding: 14px 18px; border-bottom: 1px solid var(--glass-border); font-size: 15px; }
+    .stats-table tr:last-child td { border-bottom: none; }
+    .stats-table tr:hover td { background: rgba(255,255,255,0.03); }
+    .stat-value { font-weight: 600; color: var(--accent); text-align: right; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <h1>Welcome to Bolt</h1>
+    <p>A blazing-fast web framework for the Ring programming language with built-in MiniJinja templating.</p>
+</div>
+
+<div class="features-grid">
+    {% for feature in features %}
+    <div class="card feature-card">
+        <div class="feature-icon">{{ feature.icon }}</div>
+        <h3>{{ feature.title }}</h3>
+        <p>{{ feature.desc }}</p>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="card">
+    <h2 style="margin-bottom: 16px;">Quick Stats</h2>
+    <table class="stats-table">
+        <thead>
+            <tr>
+                <th>Metric</th>
+                <th style="text-align: right;">Value</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for stat in stats %}
+            <tr>
+                <td>{{ stat.label }}</td>
+                <td class="stat-value">{{ stat.value }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

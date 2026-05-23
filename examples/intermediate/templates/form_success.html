@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block brand %}Bolt Form Handling{% endblock %}
+
+{% block nav_links %}
+<a href="/">Contact Form</a>
+<a href="/api/register">API</a>
+{% endblock %}
+
+{% block head %}
+<style>
+    .success-card { max-width: 500px; margin: 0 auto; }
+    .check-circle {
+        width: 64px; height: 64px;
+        background: linear-gradient(135deg, var(--success), #34d399);
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 30px; color: white; margin: 0 auto 20px;
+        box-shadow: 0 4px 20px rgba(16,185,129,0.35);
+    }
+    .section-title { text-align: center; margin-bottom: 8px; font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
+    .section-subtitle { text-align: center; color: var(--text-secondary); margin-bottom: 32px; font-size: 15px; }
+    .detail-row {
+        display: flex; justify-content: space-between; align-items: flex-start;
+        padding: 16px 0; border-bottom: 1px solid var(--glass-border);
+    }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-label {
+        font-weight: 600; font-size: 12px; color: var(--text-secondary);
+        text-transform: uppercase; letter-spacing: 0.05em; min-width: 80px;
+    }
+    .detail-value { font-weight: 500; text-align: right; font-size: 15px; }
+    .detail-message {
+        padding: 16px; background: rgba(255,255,255,0.03);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-sm); margin-top: 18px;
+        font-size: 14px; white-space: pre-wrap; color: var(--text-secondary);
+        line-height: 1.6;
+    }
+    .btn-back {
+        display: inline-block; margin-top: 28px;
+        padding: 13px 32px;
+        background: linear-gradient(135deg, var(--accent), #8b5cf6);
+        color: white; text-decoration: none; border-radius: var(--radius-sm);
+        font-size: 15px; font-weight: 600;
+        transition: all var(--transition);
+        box-shadow: 0 4px 20px rgba(99,102,241,0.25);
+    }
+    .btn-back:hover { transform: translateY(-2px); box-shadow: 0 6px 28px rgba(99,102,241,0.45); }
+    .btn-center { text-align: center; }
+    .empty { color: rgba(148,163,184,0.4); font-style: italic; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="success-card">
+    <div class="check-circle">&#10003;</div>
+
+    <h1 class="section-title">Form Submitted!</h1>
+    <p class="section-subtitle">Here is the information you sent us</p>
+
+    <div class="card">
+        <div class="detail-row">
+            <span class="detail-label">Name</span>
+            <span class="detail-value">{{ name }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Email</span>
+            <span class="detail-value">{{ email }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Age</span>
+            <span class="detail-value">{% if age %}{{ age }}{% else %}<span class="empty">not provided</span>{% endif %}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Country</span>
+            <span class="detail-value">{% if country %}{{ country }}{% else %}<span class="empty">not selected</span>{% endif %}</span>
+        </div>
+
+        {% if message %}
+        <div class="detail-message">{{ message }}</div>
+        {% endif %}
+    </div>
+
+    <div class="btn-center">
+        <a href="/" class="btn-back">Submit Another</a>
+    </div>
+</div>
+{% endblock %}
