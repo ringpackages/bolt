@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <style>
+        :root {
+            --bg: #0f0f1a;
+            --surface: rgba(255, 255, 255, 0.05);
+            --text: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --accent: #6366f1;
+            --accent-hover: #818cf8;
+            --success: #10b981;
+            --error: #ef4444;
+            --warning: #f59e0b;
+            --border: rgba(255, 255, 255, 0.08);
+            --radius: 16px;
+            --radius-sm: 10px;
+            --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            --font: Inter, system-ui, -apple-system, sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            background-image: radial-gradient(ellipse 80% 60% at 50% -20%, rgba(99, 102, 241, 0.1), transparent), radial-gradient(ellipse 60% 50% at 80% 80%, rgba(16, 185, 129, 0.05), transparent);
+            color: var(--text);
+            padding: 40px 20px;
+            max-width: 800px;
+            margin: 0 auto;
+            min-height: 100vh;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            margin-bottom: 8px;
+        }
+
+        h2 {
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: -0.3px;
+            margin-bottom: 12px;
+        }
+
+        h3 {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-top: 16px;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+            font-size: 15px;
+        }
+
+        .card {
+            background: var(--surface);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 18px;
+            transition: all var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+        }
+
+        .card:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .card h2 {
+            margin-bottom: 16px;
+        }
+
+        .card p {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        li {
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+            font-family: monospace;
+            font-size: 14px;
+        }
+
+        li:last-child {
+            border-bottom: none;
+        }
+
+        a {
+            color: var(--accent);
+            text-decoration: none;
+            transition: color var(--transition);
+        }
+
+        a:hover {
+            color: var(--accent-hover);
+        }
+
+        code {
+            background: rgba(255, 255, 255, 0.04);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-family: monospace;
+        }
+
+        .code-block {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+
+        .code-block:last-child {
+            margin-bottom: 0;
+        }
+
+        .code-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 14px;
+            background: rgba(255, 255, 255, 0.03);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .code-dots {
+            display: flex;
+            gap: 6px;
+        }
+
+        .code-dots span {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .code-dots span:nth-child(1) {
+            background: #ef4444;
+        }
+
+        .code-dots span:nth-child(2) {
+            background: #f59e0b;
+        }
+
+        .code-dots span:nth-child(3) {
+            background: #10b981;
+        }
+
+        .code-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .copy-btn {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            cursor: pointer;
+            font-family: var(--font);
+            transition: all var(--transition);
+        }
+
+        .copy-btn:hover {
+            background: rgba(99, 102, 241, 0.15);
+            color: var(--accent);
+            border-color: rgba(99, 102, 241, 0.3);
+        }
+
+        .copy-btn.copied {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--success);
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+
+        .code-block pre {
+            background: transparent;
+            border: none;
+            padding: 14px;
+            margin: 0;
+            font-size: 13px;
+            line-height: 1.7;
+            overflow-x: auto;
+        }
+
+        .code-block pre .cmd {
+            color: #a78bfa;
+            font-weight: 600;
+        }
+
+        .code-block pre .flag {
+            color: #c084fc;
+        }
+
+        .code-block pre .url {
+            color: #67e8f9;
+        }
+
+        .code-block pre .method {
+            color: #fbbf24;
+            font-weight: 600;
+        }
+
+        .code-block pre .string {
+            color: #86efac;
+        }
+
+        .code-block pre .var {
+            color: #fb923c;
+        }
+
+        .code-block pre .comment {
+            color: #6b7280;
+            font-style: italic;
+        }
+
+        .code-block pre .continuation {
+            color: #94a3b8;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>{{ title }}</h1>
+    {% if subtitle %}<p class="subtitle">{{ subtitle }}</p>{% endif %}
+
+    {% for section in sections %}
+    <div class="card">
+        {% if section.title %}<h2>{{ section.title }}</h2>{% endif %}
+        {% if section.items %}
+        <ul>
+            {% for item in section.items %}
+            <li>{{ item }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+        {% if section.text %}
+        <p>{{ section.text }}</p>
+        {% endif %}
+        {% if section.code %}
+        <div class="code-block">
+            <div class="code-header">
+                <div class="code-dots"><span></span><span></span><span></span></div>
+                <span class="code-label">bash</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <pre>{{ section.code }}</pre>
+        </div>
+        {% endif %}
+        {% if section.subsections %}
+        {% for sub in section.subsections %}
+        {% if sub.title %}<h3>{{ sub.title }}</h3>{% endif %}
+        {% if sub.items %}
+        <ul>
+            {% for item in sub.items %}
+            <li>{{ item }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+        {% if sub.code %}
+        <div class="code-block">
+            <div class="code-header">
+                <div class="code-dots"><span></span><span></span><span></span></div>
+                <span class="code-label">bash</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <pre>{{ sub.code }}</pre>
+        </div>
+        {% endif %}
+        {% if sub.text %}
+        <p>{{ sub.text }}</p>
+        {% endif %}
+        {% endfor %}
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    <script>
+        function highlightBash(text) {
+            var lines = text.split('\n');
+            var result = [];
+            for (var i = 0; i < lines.length; i++) {
+                var line = lines[i];
+                line = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                line = line.replace(/(#.*)$/gm, '<span class="comment">$1</span>');
+                line = line.replace(/\b(curl|wscat|jq|openssl)\b/g, '<span class="cmd">$1</span>');
+                line = line.replace(/(\s)(-[A-Za-z]|--[a-z][a-zA-Z-]*)/g, '$1<span class="flag">$2</span>');
+                line = line.replace(/\b(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD)\b/g, '<span class="method">$1</span>');
+                line = line.replace(/(https?:\/\/[^\s"'&lt;&gt;]+)/g, '<span class="url">$1</span>');
+                result.push(line);
+            }
+            return result.join('\n');
+        }
+
+        function copyCode(btn) {
+            var pre = btn.closest('.code-block').querySelector('pre');
+            var text = pre.textContent;
+            navigator.clipboard.writeText(text).then(function () {
+                btn.textContent = 'Copied!';
+                btn.classList.add('copied');
+                setTimeout(function () {
+                    btn.textContent = 'Copy';
+                    btn.classList.remove('copied');
+                }, 2000);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            var blocks = document.querySelectorAll('.code-block pre');
+            for (var i = 0; i < blocks.length; i++) {
+                var raw = blocks[i].textContent;
+                blocks[i].innerHTML = highlightBash(raw);
+            }
+        });
+    </script>
+</body>
+
+</html>
