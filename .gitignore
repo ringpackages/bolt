@@ -23,6 +23,10 @@ Thumbs.db
 *.o
 *.a
 
+# Examples
+cookies.txt
+uploads/
+
 # Profiling
 *.profraw
 *.profdata
