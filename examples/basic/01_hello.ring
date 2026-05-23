@@ -10,6 +10,7 @@ new Bolt() {
 	})
 	
 	@get("/json", func {
+		# curl http://localhost:3000/json
 		$bolt.json([
 			:message = "Hello JSON!",
 			:status = "ok"
@@ -17,6 +18,7 @@ new Bolt() {
 	})
 	
 	@get("/user/:id", func {
+		# curl http://localhost:3000/user/42
 		cUserId = $bolt.param("id")
 		$bolt.json([
 			:id = cUserId,
@@ -25,6 +27,7 @@ new Bolt() {
 	})
 	
 	@post("/echo", func {
+		# curl -X POST http://localhost:3000/echo -d "hello"
 		cData = $bolt.body()
 		$bolt.send("You sent: " + cData)
 	})

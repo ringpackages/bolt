@@ -12,6 +12,7 @@ nNextId = 3
 
 new Bolt() {
 	// List all users
+	// curl http://localhost:3000/api/users
 	@get("/api/users", func {
 		$bolt.json([
 			:success = true,
@@ -21,6 +22,7 @@ new Bolt() {
 	})
 	
 	// Get single user
+	// curl http://localhost:3000/api/users/1
 	@get("/api/users/:id", func {
 		cId = $bolt.param("id")
 		nId = 0 + cId
@@ -42,6 +44,7 @@ new Bolt() {
 	})
 	
 	// Create user
+	// curl -X POST http://localhost:3000/api/users -H "Content-Type: application/json" -d '{"name":"Charlie"}'
 	@post("/api/users", func {
 		cBody = $bolt.body()
 		
@@ -62,6 +65,7 @@ new Bolt() {
 	})
 	
 	// Update user
+	// curl -X PUT http://localhost:3000/api/users/1 -H "Content-Type: application/json" -d '{"name":"Alice Updated"}'
 	@put("/api/users/:id", func {
 		cId = $bolt.param("id")
 		nId = 0 + cId
@@ -87,6 +91,7 @@ new Bolt() {
 	})
 	
 	// Delete user
+	// curl -X DELETE http://localhost:3000/api/users/1
 	@delete("/api/users/:id", func {
 		cId = $bolt.param("id")
 		nId = 0 + cId
@@ -110,6 +115,7 @@ new Bolt() {
 	})
 	
 	// API info
+	// curl http://localhost:3000/api
 	@get("/api", func {
 		$bolt.json([
 			:name = "Bolt JSON API Example",

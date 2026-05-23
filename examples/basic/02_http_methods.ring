@@ -65,9 +65,9 @@ new Bolt() {
 <p>Try these curl commands:</p>
 <pre>
 GET:    curl http://localhost:3000/users
-POST:   curl -X POST http://localhost:3000/users -d '{"name":"Charlie"}'
-PUT:    curl -X PUT http://localhost:3000/users/1 -d '{"name":"Updated"}'
-PATCH:  curl -X PATCH http://localhost:3000/users/1 -d '{"name":"Patched"}'
+POST:   curl -X POST http://localhost:3000/users -H "Content-Type: application/json" -d '{"name":"Charlie"}'
+PUT:    curl -X PUT http://localhost:3000/users/1 -H "Content-Type: application/json" -d '{"name":"Updated"}'
+PATCH:  curl -X PATCH http://localhost:3000/users/1 -H "Content-Type: application/json" -d '{"name":"Patched"}'
 DELETE: curl -X DELETE http://localhost:3000/users/1
 </pre>`)
 	})

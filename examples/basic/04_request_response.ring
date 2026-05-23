@@ -87,6 +87,12 @@ curl -i http://localhost:3000/status/500
 
 // Redirect
 curl -L http://localhost:3000/old-url
+
+// POST echo
+curl -X POST http://localhost:3000/echo -d "Hello, Bolt!"
+
+// POST JSON
+curl -X POST http://localhost:3000/json -H "Content-Type: application/json" -d '{"name":"Bolt"}'
 </pre>`)
 	})
 }
