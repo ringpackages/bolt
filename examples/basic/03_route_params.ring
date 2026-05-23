@@ -1,5 +1,5 @@
-// Route Parameters & Query Strings
-// Run: ring 03_route_params.ring
+# Route Parameters & Query Strings
+# Run: ring 03_route_params.ring
 
 load "bolt.ring"
 

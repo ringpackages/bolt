@@ -1,6 +1,6 @@
-// HTTP Methods - GET, POST, PUT, DELETE, PATCH
-// Run: ring 02_http_methods.ring
-// Test: See curl commands below
+# HTTP Methods - GET, POST, PUT, DELETE, PATCH
+# Run: ring 02_http_methods.ring
+# Test: See curl commands below
 
 load "bolt.ring"
 

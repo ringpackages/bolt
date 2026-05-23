@@ -1,5 +1,5 @@
-// Request & Response - Headers, Status Codes, Body
-// Run: ring 04_request_response.ring
+# Request & Response - Headers, Status Codes, Body
+# Run: ring 04_request_response.ring
 
 load "bolt.ring"
 

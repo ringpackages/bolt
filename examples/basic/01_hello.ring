@@ -1,6 +1,6 @@
-// Hello World - Simple HTTP Server
-// Run: ring 01_hello.ring
-// Test: curl http://localhost:3000/
+# Hello World - Simple HTTP Server
+# Run: ring 01_hello.ring
+# Test: curl http://localhost:3000/
 
 load "bolt.ring"
 

@@ -1,5 +1,5 @@
-// JSON API - Building RESTful APIs
-// Run: ring 05_json_api.ring
+# JSON API - Building RESTful APIs
+# Run: ring 05_json_api.ring
 
 load "bolt.ring"
 

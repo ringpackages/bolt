@@ -1,6 +1,6 @@
-// Static File Serving Test
-// Run: ring 06_static_files.ring
-// Test: curl http://localhost:3000/static/index.html
+# Static File Serving Test
+# Run: ring 06_static_files.ring
+# Test: curl http://localhost:3000/static/index.html
 
 load "bolt.ring"
 
