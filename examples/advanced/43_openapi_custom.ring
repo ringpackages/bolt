@@ -96,18 +96,17 @@ new Bolt() {
     })
 
     @get("/", func {
-        cSpec = `curl http://localhost:3000/openapi.json | jq .`
-        cList = `curl http://localhost:3000/api/products`
-        cCreate = `curl -X POST http://localhost:3000/api/products \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Doohickey", "price": 14.99}'`
-        cGet = `curl http://localhost:3000/api/products/1
-curl http://localhost:3000/api/products/999`
-
         $bolt.renderFile("./templates/layout.html", [
             :title = "Bolt - Custom OpenAPI Spec",
             :subtitle = "Override auto-generated docs with custom OpenAPI JSON",
             :sections = [
+                [:title = "Test with curl", :subsections = [
+                    [:title = "Health check", :code = "curl http://localhost:3000/health"],
+                    [:title = "View custom OpenAPI spec", :code = "curl http://localhost:3000/openapi.json | jq ."],
+                    [:title = "List products", :code = "curl http://localhost:3000/api/products"],
+                    [:title = "Create a product", :code = `curl -X POST http://localhost:3000/api/products -H "Content-Type: application/json" -d '{"name": "Doohickey", "price": 14.99}'`],
+                    [:title = "Get product by ID", :code = "curl http://localhost:3000/api/products/1"]
+                ]],
                 [:title = "Endpoints", :items = [
                     "GET /openapi.json - Custom OpenAPI spec (not auto-generated)",
                     "GET /api/products - List products",
@@ -118,13 +117,7 @@ curl http://localhost:3000/api/products/999`
 setDocsInfo(t, v, d)  -> Sets API title, version, description
 
 The /openapi.json endpoint now returns the custom spec
-instead of the auto-generated one from routes.`],
-                [:title = "Test with curl", :subsections = [
-                    [:title = "View custom OpenAPI spec", :code = cSpec],
-                    [:title = "List products", :code = cList],
-                    [:title = "Create a product", :code = cCreate],
-                    [:title = "Get product by ID", :code = cGet]
-                ]]
+instead of the auto-generated one from routes.`]
             ]
         ])
     })
@@ -141,7 +134,7 @@ instead of the auto-generated one from routes.`],
     @post("/api/products", func {
         data = $bolt.jsonBody()
         nId = len(aProducts) + 1
-        aProducts + [:id = nId, :name = data[:name], :price = 0 + data[:price]]
+        add(aProducts, [:id = nId, :name = data[:name], :price = 0 + data[:price]])
         $bolt.jsonWithStatus(201, aProducts[nId])
     })
 

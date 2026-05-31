@@ -6,7 +6,12 @@ load "bolt.ring"
 new Bolt() {
     port = 3000
 
-    setCookieSecret("my-super-secret-key-32chars!")
+    # Load cookie secret from environment variable
+    env = new Env()
+    setCookieSecret(env.getOr("COOKIE_SECRET", "change-me-in-production-32chars!!"))
+    if env.getVar("COOKIE_SECRET") = ""
+        ? "WARNING: COOKIE_SECRET not set, using insecure default"
+    ok
 
     # Set a signed cookie
     # curl -i -c cookies.txt http://localhost:3000/set-signed
@@ -65,12 +70,12 @@ new Bolt() {
 
         if $bolt.hasFlash("success")
             cMsg = $bolt.getFlash("success")
-            aMessages + [:type = "success", :text = cMsg]
+            add(aMessages, [:type = "success", :text = cMsg])
         ok
 
         if $bolt.hasFlash("info")
             cMsg = $bolt.getFlash("info")
-            aMessages + [:type = "info", :text = cMsg]
+            add(aMessages, [:type = "info", :text = cMsg])
         ok
 
         if len(aMessages) > 0

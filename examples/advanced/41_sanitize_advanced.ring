@@ -14,16 +14,18 @@ new Bolt() {
     })
 
     @get("/", func {
-        cAttr = "curl -X POST http://localhost:3000/escape/attr -H 'Content-Type: application/json' -d " + `{"input": "test onclick alert(1)"}`
-        cJs = "curl -X POST http://localhost:3000/escape/js -H 'Content-Type: application/json' -d " + `{"input": "hello script alert(1) /script"}`
-        cUrl = "curl -X POST http://localhost:3000/escape/url -H 'Content-Type: application/json' -d " + `{"input": "https://example.com/?q=hello&lang=en"}`
-        cCompare = "curl -X POST http://localhost:3000/escape/all -H 'Content-Type: application/json' -d " + `{"input": "script alert(xss) /script"}`
-        cDemo = "curl http://localhost:3000/escape/demo"
-
         $bolt.renderFile("./templates/layout.html", [
             :title = "Bolt - Advanced Sanitization",
             :subtitle = "Attribute, JS, URL escaping",
             :sections = [
+                [:title = "Test with curl", :subsections = [
+                    [:title = "Health check", :code = "curl http://localhost:3000/health"],
+                    [:title = "Escape HTML attribute", :code = "curl -X POST http://localhost:3000/escape/attr -H 'Content-Type: application/json' -d " + '{"input": "test onclick alert(1)"}'],
+                    [:title = "Escape JavaScript", :code = "curl -X POST http://localhost:3000/escape/js -H 'Content-Type: application/json' -d " + '{"input": "hello script alert(1) /script"}'],
+                    [:title = "Escape URL", :code = "curl -X POST http://localhost:3000/escape/url -H 'Content-Type: application/json' -d " + '{"input": "https://example.com/?q=hello&lang=en"}'],
+                    [:title = "All methods compared", :code = "curl -X POST http://localhost:3000/escape/all -H 'Content-Type: application/json' -d " + '{"input": "script alert(xss) /script"}'],
+                    [:title = "Built-in demo", :code = "curl http://localhost:3000/escape/demo"]
+                ]],
                 [:title = "Endpoints", :items = [
                     "POST /escape/attr - escapeAttr() - Safe HTML attribute values",
                     "POST /escape/js - escapeJs() - Safe JavaScript string literals",
@@ -36,14 +38,7 @@ s.strict(cInput)     -> Strip ALL HTML tags
 s.escapeHtml(cInput) -> Escape HTML entities
 s.escapeAttr(cInput) -> Escape for HTML attribute values
 s.escapeJs(cInput)   -> Escape for JavaScript string literals
-s.escapeUrl(cInput)  -> URL-encode for safe URL components`],
-                [:title = "Test with curl", :subsections = [
-                    [:title = "Escape HTML attribute", :code = cAttr],
-                    [:title = "Escape JavaScript", :code = cJs],
-                    [:title = "Escape URL", :code = cUrl],
-                    [:title = "All methods compared", :code = cCompare],
-                    [:title = "Built-in demo", :code = cDemo]
-                ]]
+s.escapeUrl(cInput)  -> URL-encode for safe URL components`]
             ]
         ])
     })

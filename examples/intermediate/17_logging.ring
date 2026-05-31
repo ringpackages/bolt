@@ -3,6 +3,12 @@
 
 load "bolt.ring"
 
+env = new Env()
+cAdminKey = env.getOr("ADMIN_KEY", "change-me-admin-key")
+if env.getVar("ADMIN_KEY") = ""
+    ? "WARNING: ADMIN_KEY not set, using insecure default"
+ok
+
 new Bolt() {
     port = 3000
 
@@ -62,6 +68,13 @@ curl http://localhost:3000/enable
     })
 
     @get("/set-level/:level", func {
+        # Require admin auth header to change log level
+        cHeaderKey = $bolt.header("X-Admin-Key")
+        if cHeaderKey != cAdminKey
+            $bolt.forbidden()
+            return
+        ok
+
         cLevel = $bolt.param("level")
         $bolt.setLogLevel(cLevel)
         $bolt.json([
@@ -71,11 +84,25 @@ curl http://localhost:3000/enable
     })
 
     @get("/disable", func {
+        # Require admin auth
+        cHeaderKey = $bolt.header("X-Admin-Key")
+        if cHeaderKey != cAdminKey
+            $bolt.forbidden()
+            return
+        ok
+
         $bolt.disableLogging()
         $bolt.json([:logging = false, :message = "Logging disabled"])
     })
 
     @get("/enable", func {
+        # Require admin auth
+        cHeaderKey = $bolt.header("X-Admin-Key")
+        if cHeaderKey != cAdminKey
+            $bolt.forbidden()
+            return
+        ok
+
         $bolt.enableLogging()
         $bolt.json([:logging = true, :message = "Logging enabled"])
     })

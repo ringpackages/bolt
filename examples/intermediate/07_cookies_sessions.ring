@@ -9,8 +9,8 @@ new Bolt() {
     # Set a cookie
     # curl -i http://localhost:3000/set-cookie
     @get("/set-cookie", func {
-        $bolt.setCookie("username", "BoltUser")
-        $bolt.setCookie("theme", "dark")
+        $bolt.setCookieEx("username", "BoltUser", "Path=/; HttpOnly; SameSite=Strict")
+        $bolt.setCookieEx("theme", "dark", "Path=/; HttpOnly; SameSite=Strict")
 
         $bolt.send("Cookies set! Check response headers.")
     })
@@ -50,13 +50,16 @@ new Bolt() {
     # Login - set session
     # curl -i -X POST http://localhost:3000/login -d "username=alice"
     @post("/login", func {
-        cBody = $bolt.body()
-        ? "Login attempt: " + cBody
+        cUsername = $bolt.formField("username")
 
-        $bolt.setSession("user", "alice")
-        $bolt.setSession("loggedIn", "true")
-
-        $bolt.send("Logged in! Session created.")
+        if cUsername = "alice" or cUsername = "bob"
+            $bolt.regenerateSession()
+            $bolt.setSession("user", cUsername)
+            $bolt.setSession("loggedIn", "true")
+            $bolt.send("Logged in! Session created.")
+        else
+            $bolt.sendWithStatus(401, "Invalid credentials")
+        ok
     })
 
     # Check if logged in

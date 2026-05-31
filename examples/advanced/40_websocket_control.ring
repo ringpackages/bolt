@@ -34,33 +34,28 @@ new Bolt() {
     })
 
     @get("/", func {
-        cStats = `curl http://localhost:3000/ws/stats`
-        cClients = `curl http://localhost:3000/ws/clients`
-        cWs = `wscat -c ws://localhost:3000/ws/chat
-wscat -c ws://localhost:3000/ws/echo`
-
         $bolt.renderFile("./templates/layout.html", [
             :title = "Bolt - WebSocket Control",
             :subtitle = "Event abort, dropped count, rate limits",
             :sections = [
+                [:title = "Test with curl", :subsections = [
+                    [:title = "Health check", :code = "curl http://localhost:3000/health"],
+                    [:title = "WebSocket stats", :code = "curl http://localhost:3000/ws/stats"],
+                    [:title = "List connected clients", :code = "curl http://localhost:3000/ws/clients"]
+                ]],
                 [:title = "WebSocket Endpoints", :items = [
                     "/ws/chat - Normal chat with connect/message/disconnect",
                     "/ws/abort-test - Before middleware aborts the event",
                     "/ws/echo - Echo server"
-                ]],
-                [:title = "Control Endpoints", :items = [
-                    "GET /ws/stats - Connection count, dropped count",
-                    "GET /ws/clients - List connected clients"
                 ]],
                 [:title = "Configuration", :code = `setWsMaxConnections(50)     -> Max 50 total connections
 setWsMaxPerIp(10)           -> Max 10 connections per IP
 setWsMessageRateLimit(100)   -> 100 messages/second per client
 wsEventAbort()              -> Abort event from before middleware
 wsDroppedCount()            -> Count of dropped messages`],
-                [:title = "Test with curl", :subsections = [
-                    [:title = "WebSocket stats", :code = cStats],
-                    [:title = "List connected clients", :code = cClients],
-                    [:title = "Connect to WebSocket (use wscat or websocat)", :code = cWs]
+                [:title = "Test with wscat", :subsections = [
+                    [:title = "Connect to chat", :code = "wscat -c ws://localhost:3000/ws/chat"],
+                    [:title = "Connect to echo", :code = "wscat -c ws://localhost:3000/ws/echo"]
                 ]]
             ]
         ])

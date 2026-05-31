@@ -109,6 +109,7 @@ curl -i http://localhost:3000/download/data"],
 curl -i http://localhost:3000/binary/png"],
                     [:title = "Redirects (302 and 301)", :code = "curl -i http://localhost:3000/old-page
 curl -i http://localhost:3000/legacy"],
+                    [:title = "Redirect target", :code = "curl http://localhost:3000/new-page"],
                     [:title = "HEAD (headers only)", :code = "curl -I http://localhost:3000/health"],
                     [:title = "OPTIONS (CORS preflight)", :code = "curl -X OPTIONS -i http://localhost:3000/api/data"],
                     [:title = "Custom HTTP method", :code = "curl -X REPORT http://localhost:3000/report"],

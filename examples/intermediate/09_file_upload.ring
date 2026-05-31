@@ -35,6 +35,32 @@ new Bolt() {
             cSize = f[:size]
             cType = f[:type]
 
+            # Sanitize filename — strip path separators and null bytes
+            while substr(cFilename, "/")
+                nPos = substr(cFilename, "/")
+                cFilename = substr(cFilename, nPos + 1)
+            end
+            while substr(cFilename, "\\")
+                nPos = substr(cFilename, "\\")
+                cFilename = substr(cFilename, nPos + 1)
+            end
+            cFilename = substr(cFilename, 1, 255)
+
+            aAllowed = [".txt", ".png", ".jpg", ".jpeg", ".gif", ".pdf", ".csv", ".zip"]
+            bAllowed = false
+            nMax = len(aAllowed)
+            for i = 1 to nMax
+                nExtLen = len(aAllowed[i])
+                if lower(right(cFilename, nExtLen)) = aAllowed[i]
+                    bAllowed = true
+                    exit
+                ok
+            next
+            if !bAllowed
+                $bolt.badRequest("File type not allowed. Allowed: txt, png, jpg, gif, pdf, csv, zip")
+                return
+            ok
+
             ? "Filename: " + cFilename
             ? "Size: " + cSize + " bytes"
             ? "Type: " + cType
@@ -64,6 +90,31 @@ new Bolt() {
             f = $bolt.file(1)
             cFilename = f[:name]
             cSize = f[:size]
+
+            while substr(cFilename, "/")
+                nPos = substr(cFilename, "/")
+                cFilename = substr(cFilename, nPos + 1)
+            end
+            while substr(cFilename, "\\")
+                nPos = substr(cFilename, "\\")
+                cFilename = substr(cFilename, nPos + 1)
+            end
+            cFilename = substr(cFilename, 1, 255)
+
+            aAllowed = [".txt", ".png", ".jpg", ".jpeg", ".gif", ".pdf", ".csv", ".zip"]
+            bAllowed = false
+            nMax = len(aAllowed)
+            for i = 1 to nMax
+                nExtLen = len(aAllowed[i])
+                if lower(right(cFilename, nExtLen)) = aAllowed[i]
+                    bAllowed = true
+                    exit
+                ok
+            next
+            if !bAllowed
+                $bolt.badRequest("File type not allowed. Allowed: txt, png, jpg, jpeg, gif, pdf, csv, zip")
+                return
+            ok
 
             # Get file by form field name instead of index
             f2 = $bolt.fileByField("file")

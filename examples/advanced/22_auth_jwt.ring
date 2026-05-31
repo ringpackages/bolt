@@ -3,12 +3,26 @@
 
 load "bolt.ring"
 
-cJwtSecret = "my-super-secret-key-change-this-in-production"
+hash = new Hash
 
-# Simulated user database
+env = new Env()
+cJwtSecret = env.getOr("JWT_SECRET", "change-this-to-a-real-secret-32chars!!")
+if env.getVar("JWT_SECRET") = ""
+    ? "WARNING: JWT_SECRET not set, using insecure default"
+ok
+
+cAdminPass = env.getOr("ADMIN_PASS", "admin123")
+cUserPass = env.getOr("USER_PASS", "user123")
+if env.getVar("ADMIN_PASS") = "" or env.getVar("USER_PASS") = ""
+    ? "WARNING: ADMIN_PASS/USER_PASS not set, using insecure defaults"
+ok
+
+cAdminHash = hash.argon2(cAdminPass)
+cUserHash = hash.argon2(cUserPass)
+
 aUsers = [
-    [:username = "admin", :password = "admin123", :role = "admin"],
-    [:username = "user", :password = "user123", :role = "user"]
+    [:username = "admin", :password_hash = cAdminHash, :role = "admin"],
+    [:username = "user", :password_hash = cUserHash, :role = "user"]
 ]
 
 new Bolt() {
@@ -17,24 +31,44 @@ new Bolt() {
     enableLogging()
     
     # Login endpoint
-    # curl -X POST http://localhost:3000/login -H "Content-Type: application/json" -d '{"username":"admin","password":"admin123"}'
+    # curl -X POST http://localhost:3000/login -H "Content-Type: application/json" -d '{"username":"admin","password":"YOUR_ADMIN_PASS"}'
     @post("/login", func {
-        cBody = $bolt.body()
-        ? "Login attempt: " + cBody
-        
-        # In real app, parse JSON properly
-        # For demo, we'll create token if body contains "admin"
-        
-        cToken = $bolt.jwtEncodeExp([
-            :sub = "admin",
-            :role = "admin"
-        ], cJwtSecret, 3600)
-        
-        $bolt.json([
-            :success = true,
-            :token = cToken,
-            :message = "Login successful"
-        ])
+        data = $bolt.jsonBody()
+        if data = NULL
+            $bolt.badRequest("Invalid JSON body")
+            return
+        ok
+
+        cUsername = data[:username]
+        cPassword = data[:password]
+
+        bFound = false
+        nMax = len(aUsers)
+        for i = 1 to nMax
+            if aUsers[i][:username] = cUsername
+                if hash.verifyArgon2(cPassword, aUsers[i][:password_hash])
+                    bFound = true
+                    cToken = $bolt.jwtEncodeExp([
+                        :sub = aUsers[i][:username],
+                        :role = aUsers[i][:role]
+                    ], cJwtSecret, 3600)
+
+                    $bolt.json([
+                        :success = true,
+                        :token = cToken,
+                        :message = "Login successful"
+                    ])
+                ok
+                exit
+            ok
+        next
+
+        if !bFound
+            $bolt.jsonWithStatus(401, [
+                :success = false,
+                :error = "Invalid credentials"
+            ])
+        ok
     })
     
     # Protected route - requires valid JWT
@@ -81,8 +115,13 @@ new Bolt() {
         
         if $bolt.jwtVerify(cToken, cJwtSecret)
             aClaims = $bolt.jwtDecode(cToken, cJwtSecret)
-            
-            # Check role (in real app, properly parse claims)
+
+            # Verify role claim
+            if aClaims[:role] != "admin"
+                $bolt.jsonWithStatus(403, [:error = "Admin role required"])
+                return
+            ok
+
             $bolt.json([
                 :success = true,
                 :message = "Admin access granted",
@@ -141,26 +180,26 @@ new Bolt() {
         cUser = aCreds[:username]
         cPass = aCreds[:password]
 
-        if cUser = "admin" and cPass = "secret"
-            $bolt.json([:authenticated = true, :username = cUser])
-        else
+        bFound = false
+        nMax = len(aUsers)
+        for i = 1 to nMax
+            if aUsers[i][:username] = cUser
+                if hash.verifyArgon2(cPass, aUsers[i][:password_hash])
+                    bFound = true
+                    $bolt.json([:authenticated = true, :username = cUser])
+                ok
+                exit
+            ok
+        next
+
+        if !bFound
             $bolt.unauthorized()
         ok
     })
 
-    # Encode Basic Auth credentials
-    # curl http://localhost:3000/basic-encode/user/pass
-    @get("/basic-encode/:user/:pass", func {
-        cUser = $bolt.param("user")
-        cPass = $bolt.param("pass")
-        cEncoded = $bolt.basicAuthEncode(cUser, cPass)
-        $bolt.json([
-            :username = cUser,
-            :password = cPass,
-            :header = cEncoded,
-            :usage = "Use as Authorization header value"
-        ])
-    })
+    # REMOVED: /basic-encode endpoint exposed credentials in URL/response
+    # Use a secure offline tool or base64 command instead:
+    # echo -n "user:pass" | base64
 
     @get("/", func {
         $bolt.html(`<!DOCTYPE html>
@@ -207,10 +246,10 @@ new Bolt() {
 
     <div class="card">
         <h2>1. Login & Get Token</h2>
-        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">Credentials: admin / admin123</p>
+        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">Credentials: Check the aUsers list in source (demo only)</p>
         <div class="form-row">
             <input type="text" id="loginUser" value="admin" placeholder="Username">
-            <input type="password" id="loginPass" value="admin123" placeholder="Password">
+            <input type="password" id="loginPass" value="" placeholder="Password (set via env)">
             <button onclick="doLogin()">Login</button>
         </div>
         <div id="loginResult" class="result"></div>
@@ -352,6 +391,20 @@ new Bolt() {
             }
         }
     </script>
+
+    <div class="card">
+        <h2>Test with curl</h2>
+        <p>Login:</p>
+        <pre>curl -X POST http://localhost:3000/login -H 'Content-Type: application/json' -d '{"username":"admin","password":"YOUR_ADMIN_PASS"}'</pre>
+        <p>Access protected route:</p>
+        <pre>curl http://localhost:3000/protected -H 'Authorization: Bearer YOUR_TOKEN'</pre>
+        <p>Access admin route:</p>
+        <pre>curl http://localhost:3000/admin -H 'Authorization: Bearer YOUR_TOKEN'</pre>
+        <p>Refresh token:</p>
+        <pre>curl -X POST http://localhost:3000/refresh -H 'Authorization: Bearer YOUR_TOKEN'</pre>
+        <p>Basic auth:</p>
+        <pre>curl -i http://localhost:3000/basic-auth -H 'Authorization: Basic YWRtaW46c2VjcmV0'</pre>
+    </div>
 </body>
 </html>
         `)

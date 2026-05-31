@@ -23,16 +23,21 @@ new Bolt() {
             :title = "Bolt - TLS/HTTPS",
             :subtitle = "Secure server with TLS certificates",
             :sections = [
-                [:title = "How to Enable HTTPS", :code = `// 1. Generate self-signed certificates for development:
+                [:title = "Test with curl", :subsections = [
+                    [:title = "Health check", :code = "curl http://localhost:3000/health"],
+                    [:title = "Get request info", :code = "curl http://localhost:3000/info"],
+                    [:title = "View server config", :code = "curl http://localhost:3000/config"]
+                ]],
+                [:title = "How to Enable HTTPS", :code = `# 1. Generate self-signed certificates for development:
 openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 -nodes
 
-// 2. Enable TLS in your Bolt server:
+# 2. Enable TLS in your Bolt server:
 new Bolt() {
     enableTls("cert.pem", "key.pem")
-    // ... routes
+    # ... routes
 }
 
-// 3. Test with curl (skip cert verification for self-signed):
+# 3. Test with curl (skip cert verification for self-signed):
 curl -k https://localhost:3000/`],
                 [:title = "Current Status", :text = "TLS is currently disabled. Uncomment enableTls() and provide cert/key to enable."],
                 [:title = "Configuration", :code = `enableTls(certPath, keyPath) -> Enable HTTPS with TLS certificate

@@ -29,6 +29,8 @@ new Bolt() {
 	@post("/echo", func {
 		# curl -X POST http://localhost:3000/echo -d "hello"
 		cData = $bolt.body()
-		$bolt.send("You sent: " + cData)
+		s = new Sanitize
+		cSafe = s.escapeHtml(cData)
+		$bolt.send("You sent: " + cSafe)
 	})
 }

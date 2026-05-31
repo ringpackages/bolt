@@ -57,19 +57,19 @@ new Bolt() {
         aErrors = []
 
         if !v.length(data[:name], 2, 50)
-            aErrors + "Name must be 2-50 characters"
+            add(aErrors, "Name must be 2-50 characters")
         ok
 
         if !v.email(data[:email])
-            aErrors + "Invalid email format"
+            add(aErrors, "Invalid email format")
         ok
 
         if !v.range(data[:age], 0, 150)
-            aErrors + "Age must be between 0 and 150"
+            add(aErrors, "Age must be between 0 and 150")
         ok
 
         if !v.alphanumeric(data[:username])
-            aErrors + "Username must be alphanumeric"
+            add(aErrors, "Username must be alphanumeric")
         ok
 
         if len(aErrors) > 0

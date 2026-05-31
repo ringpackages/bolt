@@ -103,6 +103,11 @@ new Bolt() {
             if (e.key === "Enter") sendMessage();
         });
     </script>
+
+    <div class="card">
+        <h2>Test with wscat</h2>
+        <p>Connect using wscat: <code>wscat -c ws://localhost:3000/ws</code></p>
+    </div>
 </body>
 </html>
         ')

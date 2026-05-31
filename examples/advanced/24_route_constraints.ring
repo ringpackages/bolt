@@ -157,6 +157,22 @@ Slug:         ^[a-z0-9-]+$
 
 Note: ^ and $ anchors are REQUIRED for proper validation.</pre>
     </div>
+
+    <div class="card">
+        <h2>Test with curl</h2>
+        <p>Numeric ID:</p>
+        <pre>curl http://localhost:3000/users/123</pre>
+        <p>UUID:</p>
+        <pre>curl http://localhost:3000/posts/550e8400-e29b-41d4-a716-446655440000</pre>
+        <p>Alphanumeric username:</p>
+        <pre>curl http://localhost:3000/profile/user123</pre>
+        <p>Date (YYYY-MM-DD):</p>
+        <pre>curl http://localhost:3000/reports/2024-01-15</pre>
+        <p>Multiple constraints:</p>
+        <pre>curl http://localhost:3000/api/v1/products/456</pre>
+        <p>Slug:</p>
+        <pre>curl http://localhost:3000/blog/my-first-post</pre>
+    </div>
 </body>
 </html>
         ')

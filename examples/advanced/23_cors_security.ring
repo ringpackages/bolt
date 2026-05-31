@@ -195,6 +195,18 @@ new Bolt() {
             }
         }
     </script>
+
+    <div class="card">
+        <h2>Test with curl</h2>
+        <p>Test rate limit:</p>
+        <pre>curl http://localhost:3000/api/limited</pre>
+        <p>Disable CORS:</p>
+        <pre>curl http://localhost:3000/cors/off</pre>
+        <p>Enable CORS:</p>
+        <pre>curl http://localhost:3000/cors/on</pre>
+        <p>Check security headers:</p>
+        <pre>curl -i http://localhost:3000/security-check</pre>
+    </div>
 </body>
 </html>
         ')

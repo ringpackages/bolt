@@ -143,6 +143,16 @@ new Bolt() {
         connect();
         setInterval(refreshStats, 3000);
     </script>
+
+    <div class="card">
+        <h2>Test with wscat</h2>
+        <p>Connect to main WebSocket:</p>
+        <pre>wscat -c ws://localhost:3000/ws</pre>
+        <p>Connect to named room:</p>
+        <pre>wscat -c ws://localhost:3000/room/general</pre>
+        <p>View room stats:</p>
+        <pre>curl http://localhost:3000/stats</pre>
+    </div>
 </body>
 </html>
         ')
@@ -193,11 +203,11 @@ new Bolt() {
             nCount = $bolt.wsRoomCount(cRoom)
             aMembers = $bolt.wsRoomMembers(cRoom)
             Add(aLines, "Room '" + cRoom + "': " + nCount + " members - " + $bolt.jsonEncode(aMembers))
-            aRoomData + [
+            add(aRoomData, [
                 :name = cRoom,
                 :count = nCount,
                 :members = aMembers
-            ]
+            ])
         next
 
         aClients = $bolt.wsClientList()

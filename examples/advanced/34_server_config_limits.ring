@@ -42,9 +42,9 @@ new Bolt() {
             :title = "Bolt - Advanced Config & Limits",
             :subtitle = "Server configuration, multipart limits, WebSocket limits",
             :sections = [
-                [:title = "Endpoints", :items = [
-                    "/config - View current configuration",
-                    "/health - Health check"
+                [:title = "Test with curl", :subsections = [
+                    [:title = "Health check", :code = "curl http://localhost:3000/health"],
+                    [:title = "View current configuration", :code = "curl http://localhost:3000/config"]
                 ]],
                 [:title = "Configured Limits", :code = `setTimeout(30000)           -> 30 second request timeout
 setBodyLimit(5MB)           -> Max 5MB request body

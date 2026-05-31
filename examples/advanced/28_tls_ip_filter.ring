@@ -66,6 +66,11 @@ new Bolt() {
             :title = "Bolt - TLS & IP Filtering",
             :subtitle = "HTTPS, IP whitelist/blacklist, proxy trust",
             :sections = [
+                [:title = "Test with curl", :subsections = [
+                    [:title = "Get client IP info", :code = "curl http://localhost:3000/"],
+                    [:title = "View server config", :code = "curl http://localhost:3000/config"],
+                    [:title = "View TLS and IP info", :code = "curl http://localhost:3000/info"]
+                ]],
                 [:title = "Whitelisted IPs", :items = [
                     "127.0.0.1, 192.168.1.0/24, 10.0.0.0/8"
                 ]],
@@ -78,8 +83,7 @@ Cache: 50k entries, 10min TTL`],
                 [:title = "TLS Setup", :code = `# Generate self-signed cert:
 openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 -nodes
 
-# Then uncomment enableTls() in source`],
-                [:title = "Current Client", :text = "Your IP: " + $bolt.clientIp()]
+# Then uncomment enableTls() in source`]
             ]
         ])
     })

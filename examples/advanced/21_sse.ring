@@ -170,6 +170,18 @@ new Bolt() {
                 .catch(e => log("stats", "Error: " + e.message, "error"));
         }
     </script>
+
+    <div class="card">
+        <h2>Test with curl</h2>
+        <p>Subscribe to events (keep connection open):</p>
+        <pre>curl -N http://localhost:3000/events</pre>
+        <p>In another terminal, trigger broadcast:</p>
+        <pre>curl -X POST http://localhost:3000/broadcast</pre>
+        <p>Broadcast JSON event:</p>
+        <pre>curl -X POST http://localhost:3000/broadcast/json</pre>
+        <p>Broadcast stats:</p>
+        <pre>curl -X POST http://localhost:3000/broadcast/stats</pre>
+    </div>
 </body>
 </html>
         ')

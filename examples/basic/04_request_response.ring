@@ -33,6 +33,10 @@ new Bolt() {
 		cCode = $bolt.param("code")
 		nCode = 0 + cCode
 		
+		if nCode < 100 or nCode > 599
+			nCode = 400
+		ok
+		
 		$bolt.jsonWithStatus(nCode, [
 			:statusCode = nCode,
 			:message = "Status code set"
@@ -45,7 +49,9 @@ new Bolt() {
 		cBody = $bolt.body()
 		
 		$bolt.setHeader("Content-Type", "text/plain")
-		$bolt.send("You sent: " + cBody)
+		s = new Sanitize
+		cSafe = s.escapeHtml(cBody)
+		$bolt.send("You sent: " + cSafe)
 	})
 	
 	// JSON request body

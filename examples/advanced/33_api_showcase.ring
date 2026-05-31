@@ -5,7 +5,9 @@ load "bolt.ring"
 
 # Create .env file if missing
 if !fexists(currentdir() + "/.env")
-    write(currentdir() + "/.env", "PORT=3000" + nl + "JWT_SECRET=change-me-in-production-32chars!!" + nl)
+    # Only write non-secret config to .env
+    # Set JWT_SECRET, ENCRYPTION_KEY, COOKIE_SECRET as environment variables before running
+    write(currentdir() + "/.env", "PORT=3000" + nl + "APP_ENV=development" + nl)
 ok
 
 env = new Env()
@@ -16,7 +18,13 @@ crypto = new Crypto
 dt = new DateTime
 
 cJwtSecret = env.getOr("JWT_SECRET", "change-me-in-production")
-cEncryptionKey = "0123456789abcdef0123456789abcdef"
+if env.getVar("JWT_SECRET") = ""
+    ? "WARNING: JWT_SECRET not set, using insecure default"
+ok
+cEncryptionKey = env.getOr("ENCRYPTION_KEY", "bolt-demo-change-me-in-production!!")
+if env.getVar("ENCRYPTION_KEY") = ""
+    ? "WARNING: ENCRYPTION_KEY not set, using insecure default"
+ok
 aUsers = []
 nNextId = 1
 
@@ -31,14 +39,43 @@ new Bolt() {
     setCacheTTL(300)
 
     enableCors()
-    corsOrigin("*")
+    # Use specific origins instead of wildcard
+    corsOrigin("http://localhost:3000")
+    corsOrigin("http://localhost:8080")
     enableCompression()
     enableLogging()
     setCookieSecret(env.getOr("COOKIE_SECRET", "cookie-secret-32-chars-min!"))
+    if env.getVar("COOKIE_SECRET") = ""
+        ? "WARNING: COOKIE_SECRET not set, using insecure default"
+    ok
 
     setDocsInfo("Bolt Demo API", "1.0.0", "A full-featured demo combining all Bolt capabilities")
     enableDocs()
-    homepage()
+
+    @get("/", func {
+        $bolt.renderFile("./templates/layout.html", [
+            :title = "Bolt Demo API",
+            :subtitle = "A full-featured demo combining all Bolt capabilities",
+            :sections = [
+                [:title = "Test with curl", :subsections = [
+                    [:title = "Get current server time", :code = "curl http://localhost:3000/api/v1/time"],
+                    [:title = "Generate a UUID v4", :code = "curl http://localhost:3000/api/v1/uuid"],
+                    [:title = "Hash a password with Argon2", :code = `curl -X POST http://localhost:3000/api/v1/hash -H "Content-Type: application/json" -d '{"password":"mypassword"}'`],
+                    [:title = "Encrypt text with AES-256-GCM", :code = `curl -X POST http://localhost:3000/api/v1/encrypt -H "Content-Type: application/json" -d '{"text":"secret data"}'`],
+                    [:title = "Decrypt AES-256-GCM ciphertext", :code = `curl -X POST http://localhost:3000/api/v1/decrypt -H "Content-Type: application/json" -d '{"ciphertext":"CIPHERTEXT_HERE"}'`],
+                    [:title = "Register a new user", :code = `curl -X POST http://localhost:3000/api/v1/register -H "Content-Type: application/json" -d '{"name":"Alice","email":"alice@example.com","password":"secret123"}'`],
+                    [:title = "Login", :code = `curl -X POST http://localhost:3000/api/v1/login -H "Content-Type: application/json" -d '{"email":"alice@example.com","password":"secret123"}'`],
+                    [:title = "List all users", :code = "curl http://localhost:3000/api/v1/users"],
+                    [:title = "Get user by ID", :code = "curl http://localhost:3000/api/v1/users/1"],
+                    [:title = "Get authenticated profile", :code = 'curl http://localhost:3000/api/v1/profile -H "Authorization: Bearer YOUR_TOKEN"'],
+                    [:title = "Health check", :code = "curl http://localhost:3000/api/v1/health"],
+                    [:title = "Subscribe to SSE events", :code = "curl -N http://localhost:3000/events"],
+                    [:title = "Broadcast a notification", :code = `curl -X POST http://localhost:3000/notify -H "Content-Type: application/json" -d '{"message":"Hello everyone!"}'`]
+                ]],
+                [:title = "Interactive Docs", :text = "Visit /docs for auto-generated OpenAPI documentation"]
+            ]
+        ])
+    })
 
     $bolt.rateLimit(100, 60)
 
@@ -165,7 +202,7 @@ new Bolt() {
 
             aSafeUsers = []
             for aUser in aUsers
-                aSafeUsers + [:id = aUser[:id], :name = aUser[:name], :email = aUser[:email]]
+                add(aSafeUsers, [:id = aUser[:id], :name = aUser[:name], :email = aUser[:email]])
             next
 
             $bolt.cacheSetTTL("users_list", $bolt.jsonEncode(aSafeUsers), 60)

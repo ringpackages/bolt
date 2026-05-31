@@ -3,6 +3,12 @@
 
 load "bolt.ring"
 
+env = new Env()
+cAdminKey = env.getOr("ADMIN_KEY", "change-me-admin-key")
+if env.getVar("ADMIN_KEY") = ""
+    ? "WARNING: ADMIN_KEY not set, using insecure default"
+ok
+
 new Bolt() {
     port = 3000
     
@@ -28,12 +34,12 @@ new Bolt() {
         aData = []
         
         for i = 1 to 100
-            aData + [
+            add(aData, [
                 :id = i,
                 :name = "Item " + i,
                 :description = "This is a description for item " + i,
                 :timestamp = $bolt.unixtime()
-            ]
+            ])
         next
         
         $bolt.json([
@@ -108,6 +114,13 @@ new Bolt() {
     # In-memory cache: set and get
     # curl http://localhost:3000/cache/set/key1/value1
     @get("/cache/set/:key/:value", func {
+        # Require admin auth for cache manipulation
+        cHeaderKey = $bolt.header("X-Admin-Key")
+        if cHeaderKey != cAdminKey
+            $bolt.forbidden()
+            return
+        ok
+
         cKey = $bolt.param("key")
         cValue = $bolt.param("value")
         $bolt.cacheSet(cKey, cValue)
@@ -123,6 +136,13 @@ new Bolt() {
 
     # curl http://localhost:3000/cache/delete/key1
     @get("/cache/delete/:key", func {
+        # Require admin auth
+        cHeaderKey = $bolt.header("X-Admin-Key")
+        if cHeaderKey != cAdminKey
+            $bolt.forbidden()
+            return
+        ok
+
         cKey = $bolt.param("key")
         $bolt.cacheDelete(cKey)
         $bolt.json([:action = "delete", :key = cKey])
@@ -130,6 +150,13 @@ new Bolt() {
 
     # curl http://localhost:3000/cache/clear
     @get("/cache/clear", func {
+        # Require admin auth
+        cHeaderKey = $bolt.header("X-Admin-Key")
+        if cHeaderKey != cAdminKey
+            $bolt.forbidden()
+            return
+        ok
+
         $bolt.cacheClear()
         $bolt.json([:action = "clear", :message = "All cache entries cleared"])
     })
@@ -137,12 +164,26 @@ new Bolt() {
     # Toggle compression
     # curl http://localhost:3000/compression/off
     @get("/compression/off", func {
+        # Require admin auth
+        cHeaderKey = $bolt.header("X-Admin-Key")
+        if cHeaderKey != cAdminKey
+            $bolt.forbidden()
+            return
+        ok
+
         $bolt.disableCompression()
         $bolt.json([:compression = false, :message = "Compression disabled"])
     })
 
     # curl http://localhost:3000/compression/on
     @get("/compression/on", func {
+        # Require admin auth
+        cHeaderKey = $bolt.header("X-Admin-Key")
+        if cHeaderKey != cAdminKey
+            $bolt.forbidden()
+            return
+        ok
+
         $bolt.enableCompression()
         $bolt.json([:compression = true, :message = "Compression enabled"])
     })
@@ -197,6 +238,39 @@ new Bolt() {
         <pre>curl -i http://localhost:3000/etag</pre>
         <p>Second request with ETag (304 Not Modified):</p>
         <pre>curl -i http://localhost:3000/etag -H "If-None-Match: ETAG_FROM_FIRST_REQUEST"</pre>
+    </div>
+
+    <div class="card">
+        <h2>JSON API with Compression</h2>
+        <p>Large JSON response that benefits from compression:</p>
+        <pre>curl -i http://localhost:3000/api/data --compressed</pre>
+    </div>
+
+    <div class="card">
+        <h2>Static Assets</h2>
+        <p>Serves static files with long-term caching (1 year):</p>
+        <pre>curl -i http://localhost:3000/assets/style.css --compressed</pre>
+        <p>Look for: <code>Cache-Control: public, max-age=31536000, immutable</code></p>
+    </div>
+
+    <div class="card">
+        <h2>In-Memory Cache</h2>
+        <p>Set a cache value (requires admin key):</p>
+        <pre>curl -X GET http://localhost:3000/cache/set/mykey/myvalue -H "X-Admin-Key: YOUR_ADMIN_KEY"</pre>
+        <p>Get a cache value:</p>
+        <pre>curl http://localhost:3000/cache/get/mykey</pre>
+        <p>Delete a cache value:</p>
+        <pre>curl -X GET http://localhost:3000/cache/delete/mykey -H "X-Admin-Key: YOUR_ADMIN_KEY"</pre>
+        <p>Clear all cache:</p>
+        <pre>curl -X GET http://localhost:3000/cache/clear -H "X-Admin-Key: YOUR_ADMIN_KEY"</pre>
+    </div>
+
+    <div class="card">
+        <h2>Toggle Compression</h2>
+        <p>Disable compression (requires admin key):</p>
+        <pre>curl http://localhost:3000/compression/off -H "X-Admin-Key: YOUR_ADMIN_KEY"</pre>
+        <p>Enable compression:</p>
+        <pre>curl http://localhost:3000/compression/on -H "X-Admin-Key: YOUR_ADMIN_KEY"</pre>
     </div>
 
     <div class="card">

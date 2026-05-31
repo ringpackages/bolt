@@ -6,7 +6,12 @@ load "bolt.ring"
 new Bolt() {
     port = 3000
 
-    enableCsrf("my-csrf-secret-key")
+    # Load CSRF secret from environment variable
+    env = new Env()
+    enableCsrf(env.getOr("CSRF_SECRET", "change-me-csrf-secret-32chars!!"))
+    if env.getVar("CSRF_SECRET") = ""
+        ? "WARNING: CSRF_SECRET not set, using insecure default"
+    ok
 
     # Form with CSRF token
     @get("/form", func {

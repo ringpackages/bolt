@@ -6,7 +6,13 @@ load "bolt.ring"
 hash = new Hash
 crypto = new Crypto
 
-cEncryptionKey = "0123456789abcdef0123456789abcdef"
+# Load encryption key from environment (must be 32 chars)
+# NEVER use sequential/weak keys in production
+env = new Env()
+cEncryptionKey = env.getOr("ENCRYPTION_KEY", "bolt-demo-change-me-in-production!!")
+if env.getVar("ENCRYPTION_KEY") = ""
+    ? "WARNING: ENCRYPTION_KEY not set, using insecure default"
+ok
 
 new Bolt() {
     port = 3000
@@ -56,7 +62,8 @@ new Bolt() {
     @post("/register", func {
         data = $bolt.jsonBody()
         cStoredHash = hash.argon2(data[:password])
-        $bolt.json([:registered = true, :hash = cStoredHash])
+        # Never return password hashes to the client
+        $bolt.json([:registered = true, :message = "Registration successful. Hash stored securely."])
     })
 
     @post("/login", func {
@@ -95,34 +102,27 @@ new Bolt() {
     })
 
     @get("/", func {
-        cArgon = `curl -X POST http://localhost:3000/hash/argon2 -H 'Content-Type: application/json' -d '{"password":"mypassword"}'`
-        cArgonVerify = `curl -X POST http://localhost:3000/hash/argon2/verify -H 'Content-Type: application/json' -d '{"password":"mypassword","hash":"HASH_HERE"}'`
-        cBcrypt = `curl -X POST http://localhost:3000/hash/bcrypt -H 'Content-Type: application/json' -d '{"password":"mypassword"}'`
-        cScrypt = `curl -X POST http://localhost:3000/hash/scrypt -H 'Content-Type: application/json' -d '{"password":"mypassword"}'`
-        cRegister = `curl -X POST http://localhost:3000/register -H 'Content-Type: application/json' -d '{"password":"secret123"}'`
-        cLogin = `curl -X POST http://localhost:3000/login -H 'Content-Type: application/json' -d '{"password":"secret123"}'`
-        cEncrypt = `curl -X POST http://localhost:3000/crypto/encrypt -H 'Content-Type: application/json' -d '{"plaintext":"secret data"}'`
-        cDecrypt = `curl -X POST http://localhost:3000/crypto/decrypt -H 'Content-Type: application/json' -d '{"ciphertext":"CIPHERTEXT_HERE"}'`
-        cSign = `curl -X POST http://localhost:3000/crypto/hmac/sign -H 'Content-Type: application/json' -d '{"message":"hello","key":"my-key"}'`
-        cVerify = `curl -X POST http://localhost:3000/crypto/hmac/verify -H 'Content-Type: application/json' -d '{"message":"hello","key":"my-key","signature":"SIG_HERE"}'`
-
         $bolt.renderFile("./templates/layout.html", [
             :title = "Bolt - Hash & Crypto",
             :subtitle = "Password hashing, AES encryption, HMAC signatures",
             :sections = [
                 [:title = "Password Hashing", :subsections = [
-                    [:title = "Argon2 (recommended)", :code = cArgon + nl + cArgonVerify],
-                    [:title = "Bcrypt", :code = cBcrypt],
-                    [:title = "Scrypt", :code = cScrypt],
-                    [:title = "Register + Login flow", :code = cRegister + nl + cLogin]
+                    [:title = "Argon2 (recommended)", :code = `curl -X POST http://localhost:3000/hash/argon2 -H 'Content-Type: application/json' -d '{"password":"mypassword"}'`],
+                    [:title = "Argon2 verify", :code = `curl -X POST http://localhost:3000/hash/argon2/verify -H 'Content-Type: application/json' -d '{"password":"mypassword","hash":"HASH_HERE"}'`],
+                    [:title = "Bcrypt", :code = `curl -X POST http://localhost:3000/hash/bcrypt -H 'Content-Type: application/json' -d '{"password":"mypassword"}'`],
+                    [:title = "Bcrypt verify", :code = `curl -X POST http://localhost:3000/hash/bcrypt/verify -H 'Content-Type: application/json' -d '{"password":"mypassword","hash":"HASH_HERE"}'`],
+                    [:title = "Scrypt", :code = `curl -X POST http://localhost:3000/hash/scrypt -H 'Content-Type: application/json' -d '{"password":"mypassword"}'`],
+                    [:title = "Scrypt verify", :code = `curl -X POST http://localhost:3000/hash/scrypt/verify -H 'Content-Type: application/json' -d '{"password":"mypassword","hash":"HASH_HERE"}'`],
+                    [:title = "Register + Login flow", :code = `curl -X POST http://localhost:3000/register -H 'Content-Type: application/json' -d '{"password":"secret123"}'
+curl -X POST http://localhost:3000/login -H 'Content-Type: application/json' -d '{"password":"secret123"}'`]
                 ]],
                 [:title = "Encryption (AES-256-GCM)", :subsections = [
-                    [:title = "Encrypt", :code = cEncrypt],
-                    [:title = "Decrypt", :code = cDecrypt]
+                    [:title = "Encrypt", :code = `curl -X POST http://localhost:3000/crypto/encrypt -H 'Content-Type: application/json' -d '{"plaintext":"secret data"}'`],
+                    [:title = "Decrypt", :code = `curl -X POST http://localhost:3000/crypto/decrypt -H 'Content-Type: application/json' -d '{"ciphertext":"CIPHERTEXT_HERE"}'`]
                 ]],
                 [:title = "HMAC-SHA256", :subsections = [
-                    [:title = "Sign", :code = cSign],
-                    [:title = "Verify", :code = cVerify]
+                    [:title = "Sign", :code = `curl -X POST http://localhost:3000/crypto/hmac/sign -H 'Content-Type: application/json' -d '{"message":"hello","key":"my-key"}'`],
+                    [:title = "Verify", :code = `curl -X POST http://localhost:3000/crypto/hmac/verify -H 'Content-Type: application/json' -d '{"message":"hello","key":"my-key","signature":"SIG_HERE"}'`]
                 ]]
             ]
         ])
