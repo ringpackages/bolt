@@ -27,6 +27,15 @@ Thumbs.db
 cookies.txt
 uploads/
 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Test temp files
+upload_test_*.txt
+
 # Profiling
 *.profraw
 *.profdata
