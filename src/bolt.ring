@@ -756,6 +756,9 @@ class Bolt {
     /// @param cPath Destination file path.
     /// @return Success status.
     func fileSave(nIndex, cPath) {
+        if (substr(cPath, char(0)) > 0) {
+            return 0
+        }
         return bolt_req_file_save(pHandle, nIndex, cPath)
     }
 
@@ -813,6 +816,10 @@ class Bolt {
     /// @brief Sends a file as the response.
     /// @param cFilePath Path to the file to send.
     func sendFile(cFilePath) {
+        if (substr(cFilePath, char(0)) > 0) {
+            serverError("sendFile: NUL byte detected in path")
+            return
+        }
         bolt_respond_file(pHandle, cFilePath)
     }
 
@@ -820,6 +827,10 @@ class Bolt {
     /// @param cFilePath Path to the file to send.
     /// @param cContentType MIME type string.
     func sendFileAs(cFilePath, cContentType) {
+        if (substr(cFilePath, char(0)) > 0) {
+            serverError("sendFileAs: NUL byte detected in path")
+            return
+        }
         bolt_respond_file(pHandle, cFilePath, cContentType)
     }
 
@@ -904,6 +915,10 @@ class Bolt {
     /// @param cFilepath Path to the template file.
     /// @param aData Data to pass to the template.
     func renderFile(cFilepath, aData) {
+        if (substr(cFilepath, char(0)) > 0) {
+            serverError("renderFile: NUL byte detected in path")
+            return
+        }
         cResult = bolt_render_file(pHandle, cFilepath, aData)
         html(cResult)
     }
