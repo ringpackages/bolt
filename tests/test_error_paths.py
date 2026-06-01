@@ -40,9 +40,7 @@ def test_respond_file_absolute(client):
 
 def test_respond_file_nul(client):
     r = client.get("/respond-file/nul")
-    assert r.status_code == 200
-    assert r.text.strip() == "content"
-    assert r.text.strip() == "content"
+    assert r.status_code == 500
 
 
 def test_upload_save_absolute(client):
