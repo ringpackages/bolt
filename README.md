@@ -140,7 +140,7 @@ ringpm install bolt from ysdragon
 ```
 
 **Requirements**
-- Ring 1.25+
+- Ring 1.27+
 - Pre-built binaries included for Windows, Linux (glibc / musl), macOS, and FreeBSD
 
 ---
