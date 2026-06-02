@@ -4,7 +4,7 @@ weight: 0
 summary: "Performance comparison with other frameworks"
 ---
 
-Hello-world endpoint tested with `wrk -t8 -c100 -d10s` (5s warmup) on a Ryzen 9 7950x VM (12 vCPUs).
+Hello-world endpoint tested with `wrk -t8 -c100 -d10s` (5s warmup) on a Ryzen 9 9950x VM (12 vCPUs).
 
 <div class="benchmark-table-wrapper">
 <table class="benchmark-table">
@@ -25,105 +25,97 @@ Hello-world endpoint tested with `wrk -t8 -c100 -d10s` (5s warmup) on a Ryzen 9 
     <tr class="bm-faster">
       <td><strong>Actix-web</strong></td>
       <td>Rust</td>
-      <td class="num">785,403</td>
-      <td class="num">270.21us</td>
-      <td class="num"><span class="badge badge-faster">2.3x faster</span></td>
+      <td class="num">874,706</td>
+      <td class="num">618.66us</td>
+      <td class="num"><span class="badge badge-faster">2.1x faster</span></td>
       <td class="bar-col"><div class="bar" style="width:100%"></div></td>
-    </tr>
-    <tr class="bm-faster">
-      <td><strong>ASP.NET</strong></td>
-      <td>.NET</td>
-      <td class="num">529,987</td>
-      <td class="num">376.44us</td>
-      <td class="num"><span class="badge badge-faster">1.5x faster</span></td>
-      <td class="bar-col"><div class="bar" style="width:67%"></div></td>
     </tr>
     <tr class="bm-faster">
       <td><strong>Fiber</strong></td>
       <td>Go</td>
-      <td class="num">500,740</td>
-      <td class="num">341.55us</td>
+      <td class="num">606,122</td>
+      <td class="num">292.52us</td>
       <td class="num"><span class="badge badge-faster">1.5x faster</span></td>
-      <td class="bar-col"><div class="bar" style="width:64%"></div></td>
+      <td class="bar-col"><div class="bar" style="width:69%"></div></td>
+    </tr>
+    <tr class="bm-faster">
+      <td><strong>ASP.NET</strong></td>
+      <td>.NET</td>
+      <td class="num">501,285</td>
+      <td class="num">273.33us</td>
+      <td class="num"><span class="badge badge-faster">1.2x faster</span></td>
+      <td class="bar-col"><div class="bar" style="width:57%"></div></td>
     </tr>
     <tr class="bm-faster">
       <td><strong>Java Virtual Threads</strong></td>
       <td>Java</td>
-      <td class="num">487,340</td>
-      <td class="num">218.52us</td>
-      <td class="num"><span class="badge badge-faster">1.4x faster</span></td>
-      <td class="bar-col"><div class="bar" style="width:62%"></div></td>
+      <td class="num">490,197</td>
+      <td class="num">221.41us</td>
+      <td class="num"><span class="badge badge-faster">1.2x faster</span></td>
+      <td class="bar-col"><div class="bar" style="width:56%"></div></td>
     </tr>
     <tr class="bm-bolt">
       <td><strong>⚡ Bolt</strong></td>
       <td><strong>Ring/Rust</strong></td>
-      <td class="num"><strong>342,610</strong></td>
-      <td class="num"><strong>272.48us</strong></td>
+      <td class="num"><strong>415,084</strong></td>
+      <td class="num"><strong>263.88us</strong></td>
       <td class="num"><span class="badge badge-bolt">—</span></td>
-      <td class="bar-col"><div class="bar bar-bolt" style="width:44%"></div></td>
+      <td class="bar-col"><div class="bar bar-bolt" style="width:47%"></div></td>
     </tr>
     <tr class="bm-slower">
       <td>Gin</td>
       <td>Go</td>
-      <td class="num">296,610</td>
-      <td class="num">448.94us</td>
+      <td class="num">360,205</td>
+      <td class="num">418.28us</td>
       <td class="num"><span class="badge badge-slower">1.2x slower</span></td>
-      <td class="bar-col"><div class="bar" style="width:38%"></div></td>
+      <td class="bar-col"><div class="bar" style="width:41%"></div></td>
     </tr>
     <tr class="bm-slower">
       <td>Bun</td>
       <td>JS</td>
-      <td class="num">153,550</td>
-      <td class="num">620.98us</td>
-      <td class="num"><span class="badge badge-slower">2.2x slower</span></td>
-      <td class="bar-col"><div class="bar" style="width:20%"></div></td>
+      <td class="num">274,226</td>
+      <td class="num">364.71us</td>
+      <td class="num"><span class="badge badge-slower">1.5x slower</span></td>
+      <td class="bar-col"><div class="bar" style="width:31%"></div></td>
     </tr>
     <tr class="bm-slower">
       <td>Elysia</td>
       <td>Bun</td>
-      <td class="num">152,201</td>
-      <td class="num">627.12us</td>
-      <td class="num"><span class="badge badge-slower">2.3x slower</span></td>
-      <td class="bar-col"><div class="bar" style="width:19%"></div></td>
+      <td class="num">267,333</td>
+      <td class="num">377.12us</td>
+      <td class="num"><span class="badge badge-slower">1.6x slower</span></td>
+      <td class="bar-col"><div class="bar" style="width:31%"></div></td>
     </tr>
     <tr class="bm-slower">
       <td>NestJS+Fastify/Node</td>
       <td>JS</td>
-      <td class="num">67,382</td>
-      <td class="num">1.63ms</td>
-      <td class="num"><span class="badge badge-slower">5.1x slower</span></td>
+      <td class="num">78,925</td>
+      <td class="num">1.32ms</td>
+      <td class="num"><span class="badge badge-slower">5.3x slower</span></td>
       <td class="bar-col"><div class="bar" style="width:9%"></div></td>
     </tr>
     <tr class="bm-slower">
       <td>Express/Bun</td>
       <td>JS</td>
-      <td class="num">58,397</td>
-      <td class="num">1.64ms</td>
+      <td class="num">70,071</td>
+      <td class="num">1.42ms</td>
       <td class="num"><span class="badge badge-slower">5.9x slower</span></td>
-      <td class="bar-col"><div class="bar" style="width:7%"></div></td>
-    </tr>
-    <tr class="bm-slower">
-      <td>Flask</td>
-      <td>Python</td>
-      <td class="num">48,851</td>
-      <td class="num">1.76ms</td>
-      <td class="num"><span class="badge badge-slower">7.0x slower</span></td>
-      <td class="bar-col"><div class="bar" style="width:6%"></div></td>
+      <td class="bar-col"><div class="bar" style="width:8%"></div></td>
     </tr>
     <tr class="bm-slower">
       <td>Express/Node</td>
       <td>JS</td>
-      <td class="num">39,571</td>
-      <td class="num">2.85ms</td>
-      <td class="num"><span class="badge badge-slower">8.7x slower</span></td>
-      <td class="bar-col"><div class="bar" style="width:5%"></div></td>
+      <td class="num">67,191</td>
+      <td class="num">1.55ms</td>
+      <td class="num"><span class="badge badge-slower">6.2x slower</span></td>
+      <td class="bar-col"><div class="bar" style="width:8%"></div></td>
     </tr>
     <tr class="bm-slower">
       <td>FastAPI</td>
       <td>Python</td>
-      <td class="num">2,153</td>
-      <td class="num">44.26ms</td>
-      <td class="num"><span class="badge badge-slower">159x slower</span></td>
+      <td class="num">2,282</td>
+      <td class="num">43.64ms</td>
+      <td class="num"><span class="badge badge-slower">182x slower</span></td>
       <td class="bar-col"><div class="bar" style="width:0.3%"></div></td>
     </tr>
   </tbody>

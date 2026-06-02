@@ -113,23 +113,22 @@ ring app.ring
 
 ## 📊 Benchmarks
 
-Hello-world endpoint tested with `wrk -t8 -c100 -d10s` (5s warmup) on a Ryzen 9 7950x VM (12 vCPUs).
+Hello-world endpoint tested with `wrk -t8 -c100 -d10s` (5s warmup) on a Ryzen 9 9950x VM (12 vCPUs).
 
 | Framework | Language | Requests/sec | vs Bolt |
 |-----------|----------|-------------|---------|
-| Actix-web | Rust | 785,403 | 2.3x faster |
-| ASP.NET | .NET | 529,987 | 1.5x faster |
-| Fiber | Go | 500,740 | 1.5x faster |
-| Java Virtual Threads | Java | 487,340 | 1.4x faster |
-| **Bolt** | **Ring/Rust** | **342,610** | **—** |
-| Gin | Go | 296,610 | 1.2x slower |
-| Bun | JS | 153,550 | 2.2x slower |
-| Elysia | Bun | 152,201 | 2.3x slower |
-| NestJS+Fastify/Node | JS | 67,382 | 5.1x slower |
-| Express/Bun | JS | 58,397 | 5.9x slower |
-| Flask | Python | 48,851 | 7.0x slower |
-| Express/Node | JS | 39,571 | 8.7x slower |
-| FastAPI | Python | 2,153 | 159x slower |
+| Actix-web | Rust | 874,706 | 2.1x faster |
+| Fiber | Go | 606,122 | 1.5x faster |
+| ASP.NET | .NET | 501,285 | 1.2x faster |
+| Java Virtual Threads | Java | 490,197 | 1.2x faster |
+| **Bolt** | **Ring/Rust** | **415,084** | **—** |
+| Gin | Go | 360,205 | 1.2x slower |
+| Bun | JS | 274,226 | 1.5x slower |
+| Elysia | Bun | 267,333 | 1.6x slower |
+| NestJS+Fastify/Node | JS | 78,925 | 5.3x slower |
+| Express/Bun | JS | 70,071 | 5.9x slower |
+| Express/Node | JS | 67,191 | 6.2x slower |
+| FastAPI | Python | 2,282 | 182x slower |
 
 ---
 
