@@ -131,6 +131,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deployment restricted to `docs/site` path changes.
 - Library update job trigger relaxed to run on all non-cancelled events regardless of branch.
 
+#### Examples
+
+- Intermediate tutorial suite (examples 07–19) covering cookie/session management, middleware, file uploads, template rendering, form handling, error pages, route grouping, OpenAPI docs, logging, input validation, and environment variables.
+- Advanced tutorial suite (examples 20–43) covering WebSocket, SSE, JWT authentication, CORS, CSRF, TLS/HTTPS, route constraints, compression, caching, JSON Schema validation, password hashing, AES encryption, HTML sanitization, and custom OpenAPI specs.
+
+#### Tests
+
+- Comprehensive integration test suite with 25+ pytest modules, 27+ Ring server fixtures, TLS certificates, and per-module port allocation covering HTTP methods, routing, middleware, security, caching, WebSocket, SSE, uploads, and edge cases.
+
 #### Documentation Site
 
 - Hextra-powered Hugo documentation site with three sections (Getting Started, Guides, API Reference) spanning 60+ pages covering routing, middleware, authentication, WebSocket, SSE, caching, security, templates, and utility classes.
@@ -148,7 +157,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Context-specific escaping methods documented for html, attr, js, and url contexts.
 - CSRF and basic auth examples updated to match the new session-bound CSRF token API and corrected `basicAuthEncode` output.
 - Compression algorithm references updated from deflate to brotli.
-- Benchmark results updated with revised test configuration (8 threads, 5s warmup, 12 vCPUs), new frameworks (ASP.NET, Java Virtual Threads, Elysia, NestJS+Fastify), and average latency column.
+- Benchmark results updated with latest numbers on Ryzen 9 9950x; revised test configuration (8 threads, 5s warmup, 12 vCPUs), new frameworks (ASP.NET, Java Virtual Threads, Elysia, NestJS+Fastify), and average latency column.
+- Ring version requirement updated to 1.27.
 - Basic usage examples added: hello world, HTTP methods, route params, request/response, JSON API, and static files.
 - README updated with badges, feature catalog, framework comparison benchmarks, and Express.js-style quick start snippets.
 - Note added about final development stages.
@@ -199,6 +209,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ring_list_to_json` errors now properly propagated in JWT encoding, JSON response, and template rendering paths.
 - JWT `exp` claim made optional instead of required.
 - `bolt_force_secure_cookies` updated to accept an explicit enabled flag.
+
+#### Security
+
+- NUL byte injection prevention: file paths validated in `fileSave`, `sendFile`, `sendFileAs`, and `renderFile` methods; returns error status when NUL bytes detected.
 
 #### File Uploads
 
