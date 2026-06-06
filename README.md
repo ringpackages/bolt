@@ -113,22 +113,23 @@ ring app.ring
 
 ## 📊 Benchmarks
 
-Hello-world endpoint tested with `wrk -t8 -c100 -d10s` (5s warmup) on a Ryzen 9 9950x VM (12 vCPUs).
+Hello-world endpoint tested with `wrk -t16 -c1000 -d30s` on a dedicated server with AMD Ryzen 9 9950X (32 CPUs, 128 GiB RAM), Ubuntu 26.04.
 
-| Framework | Language | Requests/sec | vs Bolt |
-|-----------|----------|-------------|---------|
-| Actix-web | Rust | 874,706 | 2.1x faster |
-| Fiber | Go | 606,122 | 1.5x faster |
-| ASP.NET | .NET | 501,285 | 1.2x faster |
-| Java Virtual Threads | Java | 490,197 | 1.2x faster |
-| **Bolt** | **Ring/Rust** | **415,084** | **—** |
-| Gin | Go | 360,205 | 1.2x slower |
-| Bun | JS | 274,226 | 1.5x slower |
-| Elysia | Bun | 267,333 | 1.6x slower |
-| NestJS+Fastify/Node | JS | 78,925 | 5.3x slower |
-| Express/Bun | JS | 70,071 | 5.9x slower |
-| Express/Node | JS | 67,191 | 6.2x slower |
-| FastAPI | Python | 2,282 | 182x slower |
+| Framework | Language | Requests/sec | Avg Latency | vs Bolt |
+|-----------|----------|-------------|-------------|---------|
+| Actix-web | Rust | 4,209,699 | 282.71us | 7.2x faster |
+| Java Virtual Threads | Java | 3,874,620 | 262.46us | 6.6x faster |
+| ASP.NET | .NET | 1,859,957 | 617.27us | 3.2x faster |
+| Gin | Go | 1,126,549 | 1.08ms | 1.9x faster |
+| Fiber | Go | 1,034,599 | 1.29ms | 1.8x faster |
+| **Bolt** | **Ring/Rust** | **584,918** | **1.62ms** | **—** |
+| Bun | JS | 430,449 | 2.41ms | 1.4x slower |
+| Elysia | Bun | 396,082 | 2.70ms | 1.5x slower |
+| NestJS+Fastify/Node | JS | 128,475 | 21.58ms | 4.6x slower |
+| Express/Bun | JS | 115,804 | 8.75ms | 5.1x slower |
+| Express/Node | JS | 91,038 | 18.62ms | 6.4x slower |
+| Flask | Python | 70,951 | 18.86ms | 8.2x slower |
+| FastAPI | Python | 21,820 | 45.37ms | 26.8x slower |
 
 ---
 

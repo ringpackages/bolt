@@ -42,7 +42,7 @@ layout: hextra-home
   >}}
   {{< hextra/feature-card
     title="Rust-powered Engine"
-    subtitle="~343K req/s backed by Actix-web and Tokio async runtime."
+    subtitle="~585K req/s backed by Actix-web and Tokio async runtime."
   >}}
   {{< hextra/feature-card
     title="Batteries Included"

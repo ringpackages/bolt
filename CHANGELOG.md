@@ -157,7 +157,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Context-specific escaping methods documented for html, attr, js, and url contexts.
 - CSRF and basic auth examples updated to match the new session-bound CSRF token API and corrected `basicAuthEncode` output.
 - Compression algorithm references updated from deflate to brotli.
-- Benchmark results updated with latest numbers on Ryzen 9 9950x; revised test configuration (8 threads, 5s warmup, 12 vCPUs), new frameworks (ASP.NET, Java Virtual Threads, Elysia, NestJS+Fastify), and average latency column.
+- Benchmark results updated with dedicated server results (AMD Ryzen 9 9950X, 32 CPUs, 128 GiB RAM, Ubuntu 26.04); revised test configuration (16 threads, 1000 connections, 30s duration), added Flask, reordered by throughput, and recalculated all ratios.
 - Ring version requirement updated to 1.27.
 - Basic usage examples added: hello world, HTTP methods, route params, request/response, JSON API, and static files.
 - README updated with badges, feature catalog, framework comparison benchmarks, and Express.js-style quick start snippets.
